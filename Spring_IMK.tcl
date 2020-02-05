@@ -45,7 +45,9 @@
 #
 # Written by: Ahmed Elkady                                                                             
 # Created:       04/07/2012                                                                            
-# Last Modified: 20/11/2018 
+# Last Modified: 05/02/2020
+#      Modified on 05 Feb 2020: *corrected typo in the lambda equation for columns subjected to Pg/Pye larger than 0.35: modification in Line 226: 26800 --> 268000 
+#     							*modified  lambda_C and lamda_K values for columns subjected as 0.9*lambda_S: modification in Line 275
 #######################################################################################################
 
 proc Spring_IMK {SpringID Node_i Node_j E Fy Ix d tw bf tf htw bftf ry L Ls Lb My PgPye CompositeFLAG ConnectionType Units} {
