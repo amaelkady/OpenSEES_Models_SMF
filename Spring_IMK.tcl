@@ -221,7 +221,7 @@ if {$ConnectionType == 2} {
 	if {$PgPye <= 0.35} {
 		set Lmda  [expr 25500 * pow(($htw),-2.140) * pow(($Lb/$ry),-0.530) * pow((1-$PgPye),4.920)];
 	} else {
-		set Lmda  [expr 26800 * pow(($htw),-2.300) * pow(($Lb/$ry),-1.300) * pow((1-$PgPye),1.190)];	
+		set Lmda  [expr 268000* pow(($htw),-2.300) * pow(($Lb/$ry),-1.300) * pow((1-$PgPye),1.190)];	
 	}
 	
 	if {$PgPye <= 0.2} {
@@ -270,7 +270,11 @@ set as_mem_n [expr -($McMyN-1.)*$My_N/($theta_p_N * 6.*$E * $Ix/$L)];
 set SH_mod_P [expr ($as_mem_p)/(1.0+$n*(1.0-$as_mem_p))];
 set SH_mod_N [expr ($as_mem_n)/(1.0+$n*(1.0-$as_mem_n))];
 
-set L_S $Lmda; set L_C $Lmda; set L_A $Lmda; set L_K $Lmda;
+if {$ConnectionType == 2} {
+	set L_S $Lmda; set L_C [expr 0.9*$Lmda]; set L_A $Lmda; set L_K [expr 0.9*$Lmda];
+} else {
+	set L_S $Lmda; set L_C $Lmda; set L_A $Lmda; set L_K $Lmda;
+}
 set c_S 1.0; set c_C 1.0; set c_A 1.0; set c_K 1.0;
 
 uniaxialMaterial Bilin $SpringID $K $SH_mod_P $SH_mod_N $My_P $My_N $L_S $L_C $L_A $L_K $c_S $c_C $c_A $c_K $theta_p_P $theta_p_N $theta_pc_P $theta_pc_N $Res_P $Res_N $theta_u $theta_u $D_P $D_N
