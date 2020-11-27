@@ -1,32 +1,35 @@
-########################################################################################################
+##################################################################################################################
 # Spring_Pinching.tcl 
 #                                    
-# SubRoutine to model a rotational spring representing the behaviour of shear-tab Connections
+# SubRoutine to construct a rotational spring with deteriorating pinched response representing the moment-rotation 
+# behaviour of beams that are part of conventional shear-tab connections.
+#  
+# The subroutine also considers modeling uncertainty based on the logarithmic standard deviations specified by the user.
 #
-# Reference: 
-# Elkady, A. and D. G. Lignos (2015). "Effect of Gravity Framing on the Overstrength and Collapse Capacity
-# 	of Steel Frame Buildings with Perimeter Special Moment Frames." Earthquake Engineering & Structural 
-#	Dynamics 44(8): 1289–1307.
+# References: 
+#--------------	
+# Elkady, A. and D. G. Lignos (2015). "Effect of Gravity Framing on the Overstrength and Collapse Capacity of Steel
+# 	 Frame Buildings with Perimeter Special Moment Frames." Earthquake Eng. & Structural Dynamics 44(8).
 #
-#######################################################################################################
+##################################################################################################################
 #
-# Input Arguments
-# 	SpringID		Spring ID
-# 	Node_i			Node i ID
-# 	Node_j			Node j ID
-# 	Mp				Effective plastic strength of the gravity beam
-# 	gap				Gap distance between beam end and column flange
-# 	ResponseID		0 --> Bare Shear Connection
-#					1 --> Composite Shear Connection
-#					2 --> Composite Shear Connection with Stiffeneing due to Binding
+# Input Arguments:
+#------------------
+# SpringID		Spring ID
+# NodeI			Node i ID
+# NodeJ			Node j ID
+# Mp			Effective plastic strength of the gravity beam
+# gap			Gap distance between beam end and column flange
+# ResponseID	0 --> Bare Shear Connection
+#				1 --> Composite Shear Connection
+#				2 --> Composite Shear Connection with Stiffeneing due to Binding
 #
-# Written by: Ahmed Elkady 
-# Created:       09/09/2013
-# Last Modified: 09/09/2013
-########################################################################################################
+# Written by: Dr. Ahmed Elkady, University of Southampton, UK
+# 
+##################################################################################################################
 
 
-proc Spring_Pinching {SpringID Node_i Node_j M_p gap ResponseID} {
+proc Spring_Pinching {SpringID NodeI NodeJ M_p gap ResponseID} {
 
 if {$ResponseID == 0} {
 	set M_max_pos [expr  0.121* $M_p];
@@ -104,10 +107,44 @@ if {$ResponseID == 2} {
 }
 
 set Dummy_ID [expr   12 * $SpringID]; 
-uniaxialMaterial Pinching4 $Dummy_ID $M1_P $Th_1_P $M2_P $Th_2_P $M3_P $Th_3_P $M4_P $Th_4_P     $M1_N $Th_1_N $M2_N $Th_2_N $M3_N $Th_3_N $M4_N $Th_4_N    $rDispP $rForceP $uForceP   $rDispN $rForceN $uForceN   $gK1 $gK2 $gK3 $gK4 $gKLim     $gD1 $gD2 $gD3 $gD4 $gDLim   $gF1 $gF2 $gF3 $gF4 $gFLim     $gE $dmgType
-uniaxialMaterial MinMax $SpringID $Dummy_ID -min $Th_U_N -max $Th_U_P
-# Define Zero Length Rotational Spring
-element zeroLength $SpringID $Node_i $Node_j  -mat $SpringID -dir 6;
+
+##################################################################################################################
+# Random generation of backbone parameters based on assigned uncertainty 
+##################################################################################################################
+global Sigma_Pinching; global xRandom;
+if {$ResponseID == 0} {
+	set SigmaX [lindex $Sigma_Pinching 0]; Get_lognrmrand $M1_P 	$SigmaX; 		set M1_P 	$xRandom;  							set M1_N 	[expr -1.0*$M1_P];
+	set SigmaX [lindex $Sigma_Pinching 1]; Get_lognrmrand $M2_P 	$SigmaX; 		set M2_P 	[expr max(1.01*$M1_P,$xRandom)];  	set M2_N 	[expr -1.0*$M2_P];
+																					set M3_P 	[expr 1.01*$M2_P];					set M3_N 	[expr 1.01*$M2_N];
+	set SigmaX [lindex $Sigma_Pinching 2]; Get_lognrmrand $M4_P 	$SigmaX; 		set M4_P 	[expr max(1.01*$Vy,$xRandom)];
+																					set M4_N 	[expr -1.0*$M4_P];
+	set SigmaX [lindex $Sigma_Pinching 3]; Get_lognrmrand $Th_1_P 	$SigmaX; 		set Th_1_P 	$xRandom; 							set Th_1_N 	[expr -1.0*$Th_1_P];
+	set SigmaX [lindex $Sigma_Pinching 4]; Get_lognrmrand $Th_2_P 	$SigmaX; 		set Th_2_P 	[expr max(1.01*$Th_1_P,$xRandom)];; set Th_2_N 	[expr -1.0*$Th_2_P];
+	set SigmaX [lindex $Sigma_Pinching 5]; Get_lognrmrand $Th_3_P 	$SigmaX; 		set Th_3_P 	[expr max(1.01*$Th_2_P,$xRandom)];; set Th_3_N 	[expr -1.0*$Th_3_P];
+	set SigmaX [lindex $Sigma_Pinching 6]; Get_lognrmrand $Th_4_P 	$SigmaX; 		set Th_4_P 	[expr max(1.01*$Th_3_P,$xRandom)];; set Th_4_N 	[expr -1.0*$Th_4_P];
+	set SigmaX [lindex $Sigma_Pinching 7]; Get_lognrmrand $Th_U_P 	$SigmaX; 		set Th_U_P 	[expr max(1.01*$Th_4_P,$xRandom)];; set Th_U_N 	[expr -1.0*$Th_U_P];
+}
+# if {$ResponseID == 1} {
+	# set SigmaX [lindex $Sigma_Pinching 0]; Get_lognrmrand $M1_P 	$SigmaX; 		set M1_P 	$xRandom;
+	# set SigmaX [lindex $Sigma_Pinching 1]; Get_lognrmrand $M2_P 	$SigmaX; 		set M2_P 	[expr max(1.01*$M1_P,$xRandom)]; 
+	# set SigmaX [lindex $Sigma_Pinching 1]; Get_lognrmrand $M2_N 	$SigmaX; 		set M2_N 	[expr max(1.01*$M1_N,$xRandom)]; 
+																					# set M3_P 	[expr 1.01*$M2_P];					set M3_N 	[expr 1.01*$M2_N];
+	# set SigmaX [lindex $Sigma_Pinching 2]; Get_lognrmrand $M4_P 	$SigmaX; 		set M4_P 	[expr max(1.01*$Vy,$xRandom)];
+																					# set M4_N 	[expr -1.0*$M4_P];
+	# set SigmaX [lindex $Sigma_Pinching 3]; Get_lognrmrand $Th_1_P 	$SigmaX; 		set Th_1_P 	$xRandom; 							set Th_1_N 	[expr -1.0*$Th_1_P];
+	# set SigmaX [lindex $Sigma_Pinching 4]; Get_lognrmrand $Th_2_P 	$SigmaX; 		set Th_2_P 	[expr max(1.01*$Th_1_P,$xRandom)];; set Th_2_N 	[expr -1.0*$Th_2_P];
+	# set SigmaX [lindex $Sigma_Pinching 5]; Get_lognrmrand $Th_3_P 	$SigmaX; 		set Th_3_P 	[expr max(1.01*$Th_2_P,$xRandom)];; set Th_3_N 	[expr -1.0*$Th_3_P];
+	# set SigmaX [lindex $Sigma_Pinching 6]; Get_lognrmrand $Th_4_P 	$SigmaX; 		set Th_4_P 	[expr max(1.01*$Th_3_P,$xRandom)];; set Th_4_N 	[expr -1.0*$Th_4_P];
+	# set SigmaX [lindex $Sigma_Pinching 7]; Get_lognrmrand $Th_U_P 	$SigmaX; 		set Th_U_P 	[expr max(1.01*$Th_4_P,$xRandom)];; set Th_U_N 	[expr -1.0*$Th_U_P];
+# }
+##################################################################################################################
+##################################################################################################################
+
+
+uniaxialMaterial Pinching4 $Dummy_ID $M1_P $Th_1_P $M2_P $Th_2_P $M3_P $Th_3_P $M4_P $Th_4_P     $M1_N $Th_1_N $M2_N $Th_2_N $M3_N $Th_3_N $M4_N $Th_4_N    $rDispP $rForceP $uForceP   $rDispN $rForceN $uForceN   $gK1 $gK2 $gK3 $gK4 $gKLim     $gD1 $gD2 $gD3 $gD4 $gDLim   $gF1 $gF2 $gF3 $gF4 $gFLim     $gE $dmgType;
+uniaxialMaterial MinMax    $SpringID $Dummy_ID -min $Th_U_N -max $Th_U_P;
+
+element zeroLength $SpringID $NodeI $NodeJ  -mat 99 99 $SpringID -dir 1 2 6;
 
 if {$ResponseID == 2} {
 	# Stiffening Spring
@@ -117,9 +154,11 @@ if {$ResponseID == 2} {
 	set damage "damage"
 	set SpringID2 [expr  $SpringID+8];
 	set Dummy_ID2 [expr   $SpringID2+1]; 
-	uniaxialMaterial ElasticPPGap $Dummy_ID2 $Esc $My $gap $eta $damage
-	uniaxialMaterial MinMax $SpringID2 $Dummy_ID2 -max [expr   $gap + 0.040]
-	element zeroLength $SpringID2 $Node_i $Node_j  -mat $SpringID2 -dir 6;
+	
+	uniaxialMaterial ElasticPPGap $Dummy_ID2 $Esc $My $gap $eta $damage;
+	uniaxialMaterial MinMax 	  $SpringID2 $Dummy_ID2 -max [expr   $gap + 0.040];
+	
+	element zeroLength 			  $SpringID2 $NodeI $NodeJ  -mat 99 99 $SpringID2 -dir 1 2 6;
 }
 
 }

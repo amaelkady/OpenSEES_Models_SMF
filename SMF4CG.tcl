@@ -1,57 +1,56 @@
-# 4-story MRF Building
-#############################################################
-#############################################################
-#                    SPECIFY ANALYSIS OPTIONS               #
-#############################################################
-#############################################################
-set EQ 		  1; 	 # 1 Run dynamic  analysis    0 Do not run dynamiv  analysis 
-set PO 		  0; 	 # 1 Run pushover analysis    0 Do not run pushover analysis 
-set Animation 1; 	 # 1 Show animation    		  0 Do not show animation
-#############################################################
-#############################################################
-#############################################################
-#############################################################
-#############################################################
-#############################################################
-#############################################################
-#############################################################
-#############################################################
-#############################################################
-#############################################################
-#############################################################
-#############################################################
-#############################################################
-#############################################################
-#############################################################
-#############################################################
-#############################################################
-#############################################################
-#############################################################
-#############################################################
+####################################################################################################
+####################################################################################################
+#                                        4-story MRF Building
+####################################################################################################
+####################################################################################################
 
 # CLEAR ALL;
 wipe all;
 
 # BUILD MODEL (2D - 3 DOF/node)
 model basic -ndm 2 -ndf 3
-geomTransf PDelta 1;
 
-#############################################################
-# SOURCING SUBROUTINES
-#############################################################
+####################################################################################################
+#                                        BASIC MODEL VARIABLES                                     #
+####################################################################################################
+
+set  global RunTime;
+set  global StartTime;
+set  global MaxRunTime;
+set  MaxRunTime [expr 10.0000 * 60.];
+set  StartTime [clock seconds];
+set  RunTime 0.0;
+set  EQ 1;
+set  PO 0;
+set  ELF 0;
+set  Composite 1;
+set  ShowAnimation 1;
+set  ModePO 1;
+set  DriftPO 0.100000;
+set  DampModeI 1;
+set  DampModeJ 3;
+set  zeta 0.020000;
+
+####################################################################################################
+#                                       SOURCING SUBROUTINES                                       #
+####################################################################################################
 
 source DisplayModel3D.tcl;
 source DisplayPlane.tcl;
-source Spring_Panel.tcl;
+source Spring_PZ.tcl;
 source Spring_IMK.tcl;
+source Spring_Zero.tcl;
+source Spring_Rigid.tcl;
 source Spring_Pinching.tcl;
-source ConstructPanel.tcl;
-source DynamicAnalysisCollapseSolver.tcl;
+source ConstructPanel_Rectangle.tcl;
+source DynamicAnalysisCollapseSolverX.tcl;
+source Generate_lognrmrand.tcl;
 
-#############################################################
-# Prepare and Create Results Folders
-#############################################################
+####################################################################################################
+#                                          Create Results Folders                                  #
+####################################################################################################
 
+# RESULT FOLDER
 set MainFolder "ResultsMainFolder";
 set SubFolder  "ResultsSubFolder";
 file mkdir $MainFolder;
@@ -69,35 +68,60 @@ set NBay  3;
 
 # MATERIAL PROPERTIES
 set E  29000.0; 
-set Fy [expr 55.000000 * 1.000000];
+set mu    0.3; 
+set fy  [expr  55.0 *   1.0];
 
-# PANEL ZONE PARAMETERS
-set SH_Panel 0.03;
+# BASIC MATERIALS
+uniaxialMaterial Elastic  9  1.e-9; 		#Flexible Material 
+uniaxialMaterial Elastic  99 1000000000.;  #Rigid Material 
+uniaxialMaterial UVCuniaxial  666 29000.0000 55.0000 18.0000 10.0000 0.0000 1.0000 2 3500.0000 180.0000 345.0000 10.0000; #Voce-Chaboche Material
+
+# GEOMETRIC TRANSFORMATIONS IDs
+geomTransf Linear 		 1;
+geomTransf PDelta 		 2;
+geomTransf Corotational 3;
+set trans_Linear 	1;
+set trans_PDelta 	2;
+set trans_Corot  	3;
+set trans_selected  2;
+
+# STIFF ELEMENTS PROPERTY
 set A_Stiff 1000.0;
 set I_Stiff 100000.0;
 
-# Composite Beam Factor
-puts "This is the CG model"
+# COMPOSITE BEAM FACTOR
+puts "Composite Action is Considered"
 set Composite 1;
-set Comp_I    1.4;
-set Comp_I_GC 1.4;
+set Comp_I    1.400;
+set Comp_I_GC 1.400;
 
-# Basic Materials
-uniaxialMaterial Elastic  99 1000000000.;  #Rigid Material 
-uniaxialMaterial Elastic  9  1.e-9; 		#Flexible Material 
+# FIBER ELEMENT PROPERTIES
+set nSegments    8;
+set initialGI    0.00100;
+set nIntegration 5;
+
+# LOGARITHMIC STANDARD DEVIATIONS (FOR UNCERTAINTY CONSIDERATION)
+global Sigma_IMKcol Sigma_IMKbeam Sigma_Pinching4 Sigma_PZ; 
+set Sigma_IMKcol [list  1.e-9 1.e-9 1.e-9 1.e-9 1.e-9 1.e-9 1.e-9 1.e-9 1.e-9 ];
+set Sigma_IMKbeam   [list  1.e-9 1.e-9 1.e-9 1.e-9 1.e-9 1.e-9 1.e-9 1.e-9 1.e-9 ];
+set Sigma_Pinching4 [list  1.e-9 1.e-9 1.e-9 1.e-9 1.e-9 1.e-9 1.e-9 1.e-9 ];
+set Sigma_PZ        [list  1.e-9 1.e-9 1.e-9 1.e-9 ];
+set Sigma_fy     1.e-9;
+set Sigma_zeta   1.e-9;
+global Sigma_fy Sigma_fyB Sigma_fyG Sigma_GI; global xRandom;
+set SigmaX $Sigma_fy;  Generate_lognrmrand $fy 	$SigmaX; 	set fy      $xRandom;
 
 ####################################################################################################
 #                                          PRE-CALCULATIONS                                        #
 ####################################################################################################
 
-# REDUCED BEAM SECTION LENGTH (from column face to RBS center)
+# REDUCED BEAM SECTION CONNECTION DISTANCE FROM COLUMN
 set L_RBS5  [expr  0.625 *  6.56 +  0.750 * 21.10/2.];
 set L_RBS4  [expr  0.625 *  6.56 +  0.750 * 21.10/2.];
 set L_RBS3  [expr  0.625 *  8.30 +  0.750 * 21.20/2.];
 set L_RBS2  [expr  0.625 *  8.30 +  0.750 * 21.20/2.];
 
 # FRAME GRID LINES
-set HBuilding 648.00;
 set Floor5  648.00;
 set Floor4  492.00;
 set Floor3  336.00;
@@ -110,51 +134,26 @@ set Axis3 480.00;
 set Axis4 720.00;
 set Axis5 960.00;
 set Axis6 1200.00;
+
+set HBuilding 648.00;
 set WFrame 720.00;
+variable HBuilding 648.00;
 
 ####################################################################################################
-#                                				NODES       				                       #
+#                                                  NODES                                           #
 ####################################################################################################
+
+# COMMAND SYNTAX 
+# node $NodeID  $X-Coordinate  $Y-Coordinate;
 
 #SUPPORT NODES
-node 11   $Axis1  $Floor1; node 12   $Axis2  $Floor1; node 13   $Axis3  $Floor1; node 14   $Axis4  $Floor1; node 15   $Axis5  $Floor1; node 16   $Axis6  $Floor1; 
+node 110   $Axis1  $Floor1; node 120   $Axis2  $Floor1; node 130   $Axis3  $Floor1; node 140   $Axis4  $Floor1; node 150   $Axis5  $Floor1; node 160   $Axis6  $Floor1; 
 
-# LEANING/GRAVITY COLUMN NODES
-node 55   $Axis5  $Floor5; node 56   $Axis6  $Floor5; 
-node 45   $Axis5  $Floor4; node 46   $Axis6  $Floor4; 
-node 35   $Axis5  $Floor3; node 36   $Axis6  $Floor3; 
-node 25   $Axis5  $Floor2; node 26   $Axis6  $Floor2; 
-
-# MRF BEAM NODES
-node 514   [expr $Axis1 + $L_RBS5 + 23.70/2] $Floor5; node 522   [expr $Axis2 - $L_RBS5 - 23.70/2] $Floor5; node 524   [expr $Axis2 + $L_RBS5 + 23.70/2] $Floor5; node 532   [expr $Axis3 - $L_RBS5 - 23.70/2] $Floor5; node 534   [expr $Axis3 + $L_RBS5 + 23.70/2] $Floor5; node 542   [expr $Axis4 - $L_RBS5 - 23.70/2] $Floor5; 
-node 414   [expr $Axis1 + $L_RBS4 + 24.50/2] $Floor4; node 422   [expr $Axis2 - $L_RBS4 - 24.50/2] $Floor4; node 424   [expr $Axis2 + $L_RBS4 + 24.50/2] $Floor4; node 432   [expr $Axis3 - $L_RBS4 - 24.50/2] $Floor4; node 434   [expr $Axis3 + $L_RBS4 + 24.50/2] $Floor4; node 442   [expr $Axis4 - $L_RBS4 - 24.50/2] $Floor4; 
-node 314   [expr $Axis1 + $L_RBS3 + 24.50/2] $Floor3; node 322   [expr $Axis2 - $L_RBS3 - 24.50/2] $Floor3; node 324   [expr $Axis2 + $L_RBS3 + 24.50/2] $Floor3; node 332   [expr $Axis3 - $L_RBS3 - 24.50/2] $Floor3; node 334   [expr $Axis3 + $L_RBS3 + 24.50/2] $Floor3; node 342   [expr $Axis4 - $L_RBS3 - 24.50/2] $Floor3; 
-node 214   [expr $Axis1 + $L_RBS2 + 24.50/2] $Floor2; node 222   [expr $Axis2 - $L_RBS2 - 24.50/2] $Floor2; node 224   [expr $Axis2 + $L_RBS2 + 24.50/2] $Floor2; node 232   [expr $Axis3 - $L_RBS2 - 24.50/2] $Floor2; node 234   [expr $Axis3 + $L_RBS2 + 24.50/2] $Floor2; node 242   [expr $Axis4 - $L_RBS2 - 24.50/2] $Floor2; 
-
-# MRF COLUMN NODES
-node 511  $Axis1 [expr $Floor5 - 21.10/2]; node 521  $Axis2 [expr $Floor5 - 21.10/2]; node 531  $Axis3 [expr $Floor5 - 21.10/2]; node 541  $Axis4 [expr $Floor5 - 21.10/2]; 
-node 413  $Axis1 [expr $Floor4 + 21.10/2]; node 423  $Axis2 [expr $Floor4 + 21.10/2]; node 433  $Axis3 [expr $Floor4 + 21.10/2]; node 443  $Axis4 [expr $Floor4 + 21.10/2]; 
-node 411  $Axis1 [expr $Floor4 - 21.10/2]; node 421  $Axis2 [expr $Floor4 - 21.10/2]; node 431  $Axis3 [expr $Floor4 - 21.10/2]; node 441  $Axis4 [expr $Floor4 - 21.10/2]; 
-node 313  $Axis1 [expr $Floor3 + 21.20/2]; node 323  $Axis2 [expr $Floor3 + 21.20/2]; node 333  $Axis3 [expr $Floor3 + 21.20/2]; node 343  $Axis4 [expr $Floor3 + 21.20/2]; 
-node 311  $Axis1 [expr $Floor3 - 21.20/2]; node 321  $Axis2 [expr $Floor3 - 21.20/2]; node 331  $Axis3 [expr $Floor3 - 21.20/2]; node 341  $Axis4 [expr $Floor3 - 21.20/2]; 
-node 213  $Axis1 [expr $Floor2 + 21.20/2]; node 223  $Axis2 [expr $Floor2 + 21.20/2]; node 233  $Axis3 [expr $Floor2 + 21.20/2]; node 243  $Axis4 [expr $Floor2 + 21.20/2]; 
-node 211  $Axis1 [expr $Floor2 - 21.20/2]; node 221  $Axis2 [expr $Floor2 - 21.20/2]; node 231  $Axis3 [expr $Floor2 - 21.20/2]; node 241  $Axis4 [expr $Floor2 - 21.20/2]; 
-node 113  $Axis1 $Floor1; node 123  $Axis2 $Floor1; node 133  $Axis3 $Floor1; node 143  $Axis4 $Floor1; 
-
-# BEAM PLASTIC HINGE NODES
-node 5140   [expr $Axis1 + $L_RBS5 + 23.70/2] $Floor5; node 5220   [expr $Axis2 - $L_RBS5 - 23.70/2] $Floor5; node 5240   [expr $Axis2 + $L_RBS5 + 23.70/2] $Floor5; node 5320   [expr $Axis3 - $L_RBS5 - 23.70/2] $Floor5; node 5340   [expr $Axis3 + $L_RBS5 + 23.70/2] $Floor5; node 5420   [expr $Axis4 - $L_RBS5 - 23.70/2] $Floor5; 
-node 4140   [expr $Axis1 + $L_RBS4 + 24.50/2] $Floor4; node 4220   [expr $Axis2 - $L_RBS4 - 24.50/2] $Floor4; node 4240   [expr $Axis2 + $L_RBS4 + 24.50/2] $Floor4; node 4320   [expr $Axis3 - $L_RBS4 - 24.50/2] $Floor4; node 4340   [expr $Axis3 + $L_RBS4 + 24.50/2] $Floor4; node 4420   [expr $Axis4 - $L_RBS4 - 24.50/2] $Floor4; 
-node 3140   [expr $Axis1 + $L_RBS3 + 24.50/2] $Floor3; node 3220   [expr $Axis2 - $L_RBS3 - 24.50/2] $Floor3; node 3240   [expr $Axis2 + $L_RBS3 + 24.50/2] $Floor3; node 3320   [expr $Axis3 - $L_RBS3 - 24.50/2] $Floor3; node 3340   [expr $Axis3 + $L_RBS3 + 24.50/2] $Floor3; node 3420   [expr $Axis4 - $L_RBS3 - 24.50/2] $Floor3; 
-node 2140   [expr $Axis1 + $L_RBS2 + 24.50/2] $Floor2; node 2220   [expr $Axis2 - $L_RBS2 - 24.50/2] $Floor2; node 2240   [expr $Axis2 + $L_RBS2 + 24.50/2] $Floor2; node 2320   [expr $Axis3 - $L_RBS2 - 24.50/2] $Floor2; node 2340   [expr $Axis3 + $L_RBS2 + 24.50/2] $Floor2; node 2420   [expr $Axis4 - $L_RBS2 - 24.50/2] $Floor2; 
-
-# COLUMN SPLICE NODES
-node 103170 $Axis1 [expr ($Floor3+$Floor4)/2]; node 103270 $Axis2 [expr ($Floor3+$Floor4)/2]; node 103370 $Axis3 [expr ($Floor3+$Floor4)/2]; node 103470 $Axis4 [expr ($Floor3+$Floor4)/2]; node 103570 $Axis5 [expr ($Floor3+$Floor4)/2]; node 103670 $Axis6 [expr ($Floor3+$Floor4)/2]; 
-
-# EGF BEAM NODES
-node 554  $Axis5  $Floor5; node 562  $Axis6  $Floor5; 
-node 454  $Axis5  $Floor4; node 462  $Axis6  $Floor4; 
-node 354  $Axis5  $Floor3; node 362  $Axis6  $Floor3; 
-node 254  $Axis5  $Floor2; node 262  $Axis6  $Floor2; 
+# EGF COLUMN GRID NODES
+node 550   $Axis5  $Floor5; node 560   $Axis6  $Floor5; 
+node 450   $Axis5  $Floor4; node 460   $Axis6  $Floor4; 
+node 350   $Axis5  $Floor3; node 360   $Axis6  $Floor3; 
+node 250   $Axis5  $Floor2; node 260   $Axis6  $Floor2; 
 
 # EGF COLUMN NODES
 node 551  $Axis5  $Floor5; node 561  $Axis6  $Floor5; 
@@ -166,31 +165,69 @@ node 253  $Axis5  $Floor2; node 263  $Axis6  $Floor2;
 node 251  $Axis5  $Floor2; node 261  $Axis6  $Floor2; 
 node 153  $Axis5  $Floor1; node 163  $Axis6  $Floor1; 
 
+# EGF BEAM NODES
+node 554  $Axis5  $Floor5; node 562  $Axis6  $Floor5; 
+node 454  $Axis5  $Floor4; node 462  $Axis6  $Floor4; 
+node 354  $Axis5  $Floor3; node 362  $Axis6  $Floor3; 
+node 254  $Axis5  $Floor2; node 262  $Axis6  $Floor2; 
+
+# MF COLUMN NODES
+node 511  $Axis1 [expr $Floor5 - 21.10/2]; node 521  $Axis2 [expr $Floor5 - 21.10/2]; node 531  $Axis3 [expr $Floor5 - 21.10/2]; node 541  $Axis4 [expr $Floor5 - 21.10/2]; 
+node 413  $Axis1 [expr $Floor4 + 21.10/2]; node 423  $Axis2 [expr $Floor4 + 21.10/2]; node 433  $Axis3 [expr $Floor4 + 21.10/2]; node 443  $Axis4 [expr $Floor4 + 21.10/2]; 
+node 411  $Axis1 [expr $Floor4 - 21.10/2]; node 421  $Axis2 [expr $Floor4 - 21.10/2]; node 431  $Axis3 [expr $Floor4 - 21.10/2]; node 441  $Axis4 [expr $Floor4 - 21.10/2]; 
+node 313  $Axis1 [expr $Floor3 + 21.20/2]; node 323  $Axis2 [expr $Floor3 + 21.20/2]; node 333  $Axis3 [expr $Floor3 + 21.20/2]; node 343  $Axis4 [expr $Floor3 + 21.20/2]; 
+node 311  $Axis1 [expr $Floor3 - 21.20/2]; node 321  $Axis2 [expr $Floor3 - 21.20/2]; node 331  $Axis3 [expr $Floor3 - 21.20/2]; node 341  $Axis4 [expr $Floor3 - 21.20/2]; 
+node 213  $Axis1 [expr $Floor2 + 21.20/2]; node 223  $Axis2 [expr $Floor2 + 21.20/2]; node 233  $Axis3 [expr $Floor2 + 21.20/2]; node 243  $Axis4 [expr $Floor2 + 21.20/2]; 
+node 211  $Axis1 [expr $Floor2 - 21.20/2]; node 221  $Axis2 [expr $Floor2 - 21.20/2]; node 231  $Axis3 [expr $Floor2 - 21.20/2]; node 241  $Axis4 [expr $Floor2 - 21.20/2]; 
+node 113  $Axis1 $Floor1; node 123  $Axis2 $Floor1; node 133  $Axis3 $Floor1; node 143  $Axis4 $Floor1; 
+
+# MF BEAM NODES
+node 514   [expr $Axis1 + $L_RBS5 + 23.70/2] $Floor5; node 522   [expr $Axis2 - $L_RBS5 - 23.70/2] $Floor5; node 524   [expr $Axis2 + $L_RBS5 + 23.70/2] $Floor5; node 532   [expr $Axis3 - $L_RBS5 - 23.70/2] $Floor5; node 534   [expr $Axis3 + $L_RBS5 + 23.70/2] $Floor5; node 542   [expr $Axis4 - $L_RBS5 - 23.70/2] $Floor5; 
+node 414   [expr $Axis1 + $L_RBS4 + 24.50/2] $Floor4; node 422   [expr $Axis2 - $L_RBS4 - 24.50/2] $Floor4; node 424   [expr $Axis2 + $L_RBS4 + 24.50/2] $Floor4; node 432   [expr $Axis3 - $L_RBS4 - 24.50/2] $Floor4; node 434   [expr $Axis3 + $L_RBS4 + 24.50/2] $Floor4; node 442   [expr $Axis4 - $L_RBS4 - 24.50/2] $Floor4; 
+node 314   [expr $Axis1 + $L_RBS3 + 24.50/2] $Floor3; node 322   [expr $Axis2 - $L_RBS3 - 24.50/2] $Floor3; node 324   [expr $Axis2 + $L_RBS3 + 24.50/2] $Floor3; node 332   [expr $Axis3 - $L_RBS3 - 24.50/2] $Floor3; node 334   [expr $Axis3 + $L_RBS3 + 24.50/2] $Floor3; node 342   [expr $Axis4 - $L_RBS3 - 24.50/2] $Floor3; 
+node 214   [expr $Axis1 + $L_RBS2 + 24.50/2] $Floor2; node 222   [expr $Axis2 - $L_RBS2 - 24.50/2] $Floor2; node 224   [expr $Axis2 + $L_RBS2 + 24.50/2] $Floor2; node 232   [expr $Axis3 - $L_RBS2 - 24.50/2] $Floor2; node 234   [expr $Axis3 + $L_RBS2 + 24.50/2] $Floor2; node 242   [expr $Axis4 - $L_RBS2 - 24.50/2] $Floor2; 
+
+# BEAM SPRING NODES
+node 5140   [expr $Axis1 + $L_RBS5 + 23.70/2] $Floor5; node 5220   [expr $Axis2 - $L_RBS5 - 23.70/2] $Floor5; node 5240   [expr $Axis2 + $L_RBS5 + 23.70/2] $Floor5; node 5320   [expr $Axis3 - $L_RBS5 - 23.70/2] $Floor5; node 5340   [expr $Axis3 + $L_RBS5 + 23.70/2] $Floor5; node 5420   [expr $Axis4 - $L_RBS5 - 23.70/2] $Floor5; 
+node 4140   [expr $Axis1 + $L_RBS4 + 24.50/2] $Floor4; node 4220   [expr $Axis2 - $L_RBS4 - 24.50/2] $Floor4; node 4240   [expr $Axis2 + $L_RBS4 + 24.50/2] $Floor4; node 4320   [expr $Axis3 - $L_RBS4 - 24.50/2] $Floor4; node 4340   [expr $Axis3 + $L_RBS4 + 24.50/2] $Floor4; node 4420   [expr $Axis4 - $L_RBS4 - 24.50/2] $Floor4; 
+node 3140   [expr $Axis1 + $L_RBS3 + 24.50/2] $Floor3; node 3220   [expr $Axis2 - $L_RBS3 - 24.50/2] $Floor3; node 3240   [expr $Axis2 + $L_RBS3 + 24.50/2] $Floor3; node 3320   [expr $Axis3 - $L_RBS3 - 24.50/2] $Floor3; node 3340   [expr $Axis3 + $L_RBS3 + 24.50/2] $Floor3; node 3420   [expr $Axis4 - $L_RBS3 - 24.50/2] $Floor3; 
+node 2140   [expr $Axis1 + $L_RBS2 + 24.50/2] $Floor2; node 2220   [expr $Axis2 - $L_RBS2 - 24.50/2] $Floor2; node 2240   [expr $Axis2 + $L_RBS2 + 24.50/2] $Floor2; node 2320   [expr $Axis3 - $L_RBS2 - 24.50/2] $Floor2; node 2340   [expr $Axis3 + $L_RBS2 + 24.50/2] $Floor2; node 2420   [expr $Axis4 - $L_RBS2 - 24.50/2] $Floor2; 
+
+# COLUMN SPLICE NODES
+node 103172 $Axis1 [expr ($Floor3 + 0.50 * 156)]; node 103272 $Axis2 [expr ($Floor3 + 0.50 * 156)]; node 103372 $Axis3 [expr ($Floor3 + 0.50 * 156)]; node 103472 $Axis4 [expr ($Floor3 + 0.50 * 156)]; node 103572 $Axis5 [expr ($Floor3 + 0.50 * 156)]; node 103672 $Axis6 [expr ($Floor3 + 0.50 * 156)]; 
+node 103171 $Axis1 [expr ($Floor3 + 0.50 * 156)]; node 103271 $Axis2 [expr ($Floor3 + 0.50 * 156)]; node 103371 $Axis3 [expr ($Floor3 + 0.50 * 156)]; node 103471 $Axis4 [expr ($Floor3 + 0.50 * 156)]; node 103571 $Axis5 [expr ($Floor3 + 0.50 * 156)]; node 103671 $Axis6 [expr ($Floor3 + 0.50 * 156)]; 
+
+###################################################################################################
+#                                  PANEL ZONE NODES & ELEMENTS                                    #
+###################################################################################################
+
 # PANEL ZONE NODES AND ELASTIC ELEMENTS
-# CROSS PANEL ZONE NODES AND ELASTIC ELEMENTS
 # Command Syntax; 
-# ConstructPanel Axis Floor X_Axis Y_Floor E A_Panel I_Panel d_Col d_Beam transfTag 
-ConstructPanel  1 5 $Axis1 $Floor5 $E $A_Stiff $I_Stiff 23.70 21.10 1; ConstructPanel  2 5 $Axis2 $Floor5 $E $A_Stiff $I_Stiff 23.70 21.10 1; ConstructPanel  3 5 $Axis3 $Floor5 $E $A_Stiff $I_Stiff 23.70 21.10 1; ConstructPanel  4 5 $Axis4 $Floor5 $E $A_Stiff $I_Stiff 23.70 21.10 1; 
-ConstructPanel  1 4 $Axis1 $Floor4 $E $A_Stiff $I_Stiff 23.70 21.10 1; ConstructPanel  2 4 $Axis2 $Floor4 $E $A_Stiff $I_Stiff 23.70 21.10 1; ConstructPanel  3 4 $Axis3 $Floor4 $E $A_Stiff $I_Stiff 23.70 21.10 1; ConstructPanel  4 4 $Axis4 $Floor4 $E $A_Stiff $I_Stiff 23.70 21.10 1; 
-ConstructPanel  1 3 $Axis1 $Floor3 $E $A_Stiff $I_Stiff 24.50 21.20 1; ConstructPanel  2 3 $Axis2 $Floor3 $E $A_Stiff $I_Stiff 24.50 21.20 1; ConstructPanel  3 3 $Axis3 $Floor3 $E $A_Stiff $I_Stiff 24.50 21.20 1; ConstructPanel  4 3 $Axis4 $Floor3 $E $A_Stiff $I_Stiff 24.50 21.20 1; 
-ConstructPanel  1 2 $Axis1 $Floor2 $E $A_Stiff $I_Stiff 24.50 21.20 1; ConstructPanel  2 2 $Axis2 $Floor2 $E $A_Stiff $I_Stiff 24.50 21.20 1; ConstructPanel  3 2 $Axis3 $Floor2 $E $A_Stiff $I_Stiff 24.50 21.20 1; ConstructPanel  4 2 $Axis4 $Floor2 $E $A_Stiff $I_Stiff 24.50 21.20 1; 
+# ConstructPanel_Rectangle Axis Floor X_Axis Y_Floor E A_Panel I_Panel d_Col d_Beam transfTag 
+ConstructPanel_Rectangle  1 5 $Axis1 $Floor5 $E $A_Stiff $I_Stiff 23.70 21.10 $trans_selected; ConstructPanel_Rectangle  2 5 $Axis2 $Floor5 $E $A_Stiff $I_Stiff 23.70 21.10 $trans_selected; ConstructPanel_Rectangle  3 5 $Axis3 $Floor5 $E $A_Stiff $I_Stiff 23.70 21.10 $trans_selected; ConstructPanel_Rectangle  4 5 $Axis4 $Floor5 $E $A_Stiff $I_Stiff 23.70 21.10 $trans_selected; 
+ConstructPanel_Rectangle  1 4 $Axis1 $Floor4 $E $A_Stiff $I_Stiff 24.50 21.10 $trans_selected; ConstructPanel_Rectangle  2 4 $Axis2 $Floor4 $E $A_Stiff $I_Stiff 24.50 21.10 $trans_selected; ConstructPanel_Rectangle  3 4 $Axis3 $Floor4 $E $A_Stiff $I_Stiff 24.50 21.10 $trans_selected; ConstructPanel_Rectangle  4 4 $Axis4 $Floor4 $E $A_Stiff $I_Stiff 24.50 21.10 $trans_selected; 
+ConstructPanel_Rectangle  1 3 $Axis1 $Floor3 $E $A_Stiff $I_Stiff 24.50 21.20 $trans_selected; ConstructPanel_Rectangle  2 3 $Axis2 $Floor3 $E $A_Stiff $I_Stiff 24.50 21.20 $trans_selected; ConstructPanel_Rectangle  3 3 $Axis3 $Floor3 $E $A_Stiff $I_Stiff 24.50 21.20 $trans_selected; ConstructPanel_Rectangle  4 3 $Axis4 $Floor3 $E $A_Stiff $I_Stiff 24.50 21.20 $trans_selected; 
+ConstructPanel_Rectangle  1 2 $Axis1 $Floor2 $E $A_Stiff $I_Stiff 24.50 21.20 $trans_selected; ConstructPanel_Rectangle  2 2 $Axis2 $Floor2 $E $A_Stiff $I_Stiff 24.50 21.20 $trans_selected; ConstructPanel_Rectangle  3 2 $Axis3 $Floor2 $E $A_Stiff $I_Stiff 24.50 21.20 $trans_selected; ConstructPanel_Rectangle  4 2 $Axis4 $Floor2 $E $A_Stiff $I_Stiff 24.50 21.20 $trans_selected; 
 
 ####################################################################################################
-#                                   		PANEL ZONE SPRINGS	                                   #
+#                                          PANEL ZONE SPRINGS                                      #
 ####################################################################################################
 
-# Command Syntax; 
-# Spring_Panel Element_ID Node_i Node_j E Fy tp d_Colum d_Beam tf_Column bf_Column SH_Panel Response_ID transfTag Units
-Spring_Panel 905100 405109 405110 $E $Fy [expr  0.43 +  0.00] 23.70 21.10  0.59  7.04  0.03 2 1 2; Spring_Panel 905200 405209 405210 $E $Fy [expr  0.43 +  0.31] 23.70 21.10  0.59  7.04  0.03 0 1 2; Spring_Panel 905300 405309 405310 $E $Fy [expr  0.43 +  0.31] 23.70 21.10  0.59  7.04  0.03 0 1 2; Spring_Panel 905400 405409 405410 $E $Fy [expr  0.43 +  0.00] 23.70 21.10  0.59  7.04  0.03 2 1 2; 
-Spring_Panel 904100 404109 404110 $E $Fy [expr  0.43 +  0.00] 23.70 21.10  0.59  7.04  0.03 2 1 2; Spring_Panel 904200 404209 404210 $E $Fy [expr  0.43 +  0.31] 23.70 21.10  0.59  7.04  0.03 0 1 2; Spring_Panel 904300 404309 404310 $E $Fy [expr  0.43 +  0.31] 23.70 21.10  0.59  7.04  0.03 0 1 2; Spring_Panel 904400 404409 404410 $E $Fy [expr  0.43 +  0.00] 23.70 21.10  0.59  7.04  0.03 2 1 2; 
-Spring_Panel 903100 403109 403110 $E $Fy [expr  0.55 +  0.00] 24.50 21.20  0.98  9.00  0.03 2 1 2; Spring_Panel 903200 403209 403210 $E $Fy [expr  0.55 +  0.31] 24.50 21.20  0.98  9.00  0.03 0 1 2; Spring_Panel 903300 403309 403310 $E $Fy [expr  0.55 +  0.31] 24.50 21.20  0.98  9.00  0.03 0 1 2; Spring_Panel 903400 403409 403410 $E $Fy [expr  0.55 +  0.00] 24.50 21.20  0.98  9.00  0.03 2 1 2; 
-Spring_Panel 902100 402109 402110 $E $Fy [expr  0.55 +  0.00] 24.50 21.20  0.98  9.00  0.03 2 1 2; Spring_Panel 902200 402209 402210 $E $Fy [expr  0.55 +  0.31] 24.50 21.20  0.98  9.00  0.03 0 1 2; Spring_Panel 902300 402309 402310 $E $Fy [expr  0.55 +  0.31] 24.50 21.20  0.98  9.00  0.03 0 1 2; Spring_Panel 902400 402409 402410 $E $Fy [expr  0.55 +  0.00] 24.50 21.20  0.98  9.00  0.03 2 1 2; 
+# COMMAND SYNTAX 
+# Spring_PZ    Element_ID Node_i Node_j E mu fy tw_Col tdp d_Col d_Beam tf_Col bf_Col Ic trib ts Response_ID transfTag
+Spring_PZ    905100 405109 405110 $E $mu [expr $fy *   1.0]  0.43   0.00 23.70 21.10  0.59  7.04 1560.00 3.500 4.000 2 1; Spring_PZ    905200 405209 405210 $E $mu [expr $fy *   1.0]  0.43   0.31 23.70 21.10  0.59  7.04 1560.00 3.500 4.000 0 1; Spring_PZ    905300 405309 405310 $E $mu [expr $fy *   1.0]  0.43   0.31 23.70 21.10  0.59  7.04 1560.00 3.500 4.000 0 1; Spring_PZ    905400 405409 405410 $E $mu [expr $fy *   1.0]  0.43   0.00 23.70 21.10  0.59  7.04 1560.00 3.500 4.000 2 1; 
+Spring_PZ    904100 404109 404110 $E $mu [expr $fy *   1.0]  0.43   0.00 23.70 21.10  0.59  7.04 1560.00 3.500 4.000 2 1; Spring_PZ    904200 404209 404210 $E $mu [expr $fy *   1.0]  0.43   0.31 23.70 21.10  0.59  7.04 1560.00 3.500 4.000 0 1; Spring_PZ    904300 404309 404310 $E $mu [expr $fy *   1.0]  0.43   0.31 23.70 21.10  0.59  7.04 1560.00 3.500 4.000 0 1; Spring_PZ    904400 404409 404410 $E $mu [expr $fy *   1.0]  0.43   0.00 23.70 21.10  0.59  7.04 1560.00 3.500 4.000 2 1; 
+Spring_PZ    903100 403109 403110 $E $mu [expr $fy *   1.0]  0.55   0.00 24.50 21.20  0.98  9.00 3000.00 3.500 4.000 2 1; Spring_PZ    903200 403209 403210 $E $mu [expr $fy *   1.0]  0.55   0.31 24.50 21.20  0.98  9.00 3000.00 3.500 4.000 0 1; Spring_PZ    903300 403309 403310 $E $mu [expr $fy *   1.0]  0.55   0.31 24.50 21.20  0.98  9.00 3000.00 3.500 4.000 0 1; Spring_PZ    903400 403409 403410 $E $mu [expr $fy *   1.0]  0.55   0.00 24.50 21.20  0.98  9.00 3000.00 3.500 4.000 2 1; 
+Spring_PZ    902100 402109 402110 $E $mu [expr $fy *   1.0]  0.55   0.00 24.50 21.20  0.98  9.00 3000.00 3.500 4.000 2 1; Spring_PZ    902200 402209 402210 $E $mu [expr $fy *   1.0]  0.55   0.31 24.50 21.20  0.98  9.00 3000.00 3.500 4.000 0 1; Spring_PZ    902300 402309 402310 $E $mu [expr $fy *   1.0]  0.55   0.31 24.50 21.20  0.98  9.00 3000.00 3.500 4.000 0 1; Spring_PZ    902400 402409 402410 $E $mu [expr $fy *   1.0]  0.55   0.00 24.50 21.20  0.98  9.00 3000.00 3.500 4.000 2 1; 
 
 ####################################################################################################
 #                                     ELASTIC COLUMNS AND BEAMS                                    #
 ####################################################################################################
 
-# Stiffness Modifiers
+# COMMAND SYNTAX 
+# element ModElasticBeam2d $ElementID $iNode $jNode $Area $E $Ix $K11 $K33 $K44 $transformation 
+
+# STIFFNESS MODIFIERS
 set n 10.;
 set K44_2 [expr 6*(1+$n)/(2+3*$n)];
 set K11_2 [expr (1+2*$n)*$K44_2/(1+$n)];
@@ -200,181 +237,179 @@ set K11_1 [expr (1+2*$n)*$K44_1/(1+$n)];
 set K33_1 [expr 2*$K44_1];
 
 # COLUMNS
-# element ModElasticBeam2d $eleTag $iNode $jNode $A $E $Iz $K11 $K33 $K44 $transfTag 
-element ModElasticBeam2d 604100 413 511  18.3000 $E [expr ($n+1)/$n*1560.0000] $K11_2 $K33_2 $K44_2 1; element ModElasticBeam2d 604200 423 521  18.3000 $E [expr ($n+1)/$n*1560.0000] $K11_2 $K33_2 $K44_2 1; element ModElasticBeam2d 604300 433 531  18.3000 $E [expr ($n+1)/$n*1560.0000] $K11_2 $K33_2 $K44_2 1; element ModElasticBeam2d 604400 443 541  18.3000 $E [expr ($n+1)/$n*1560.0000] $K11_2 $K33_2 $K44_2 1; 
-element ModElasticBeam2d 603102 103170 411 18.3000 $E [expr ($n+1)/$n*1560.0000] $K33_1 $K11_1 $K44_1 1;  element ModElasticBeam2d 603202 103270 421 18.3000 $E [expr ($n+1)/$n*1560.0000] $K33_1 $K11_1 $K44_1 1;  element ModElasticBeam2d 603302 103370 431 18.3000 $E [expr ($n+1)/$n*1560.0000] $K33_1 $K11_1 $K44_1 1;  element ModElasticBeam2d 603402 103470 441 18.3000 $E [expr ($n+1)/$n*1560.0000] $K33_1 $K11_1 $K44_1 1;  
-element ModElasticBeam2d 603101 313 103170 30.3000 $E [expr ($n+1)/$n*3000.0000] $K33_1 $K11_1 $K44_1 1;  element ModElasticBeam2d 603201 323 103270 30.3000 $E [expr ($n+1)/$n*3000.0000] $K33_1 $K11_1 $K44_1 1;  element ModElasticBeam2d 603301 333 103370 30.3000 $E [expr ($n+1)/$n*3000.0000] $K33_1 $K11_1 $K44_1 1;  element ModElasticBeam2d 603401 343 103470 30.3000 $E [expr ($n+1)/$n*3000.0000] $K33_1 $K11_1 $K44_1 1;  
-element ModElasticBeam2d 602100 213 311  30.3000 $E [expr ($n+1)/$n*3000.0000] $K11_2 $K33_2 $K44_2 1; element ModElasticBeam2d 602200 223 321  30.3000 $E [expr ($n+1)/$n*3000.0000] $K11_2 $K33_2 $K44_2 1; element ModElasticBeam2d 602300 233 331  30.3000 $E [expr ($n+1)/$n*3000.0000] $K11_2 $K33_2 $K44_2 1; element ModElasticBeam2d 602400 243 341  30.3000 $E [expr ($n+1)/$n*3000.0000] $K11_2 $K33_2 $K44_2 1; 
-element ModElasticBeam2d 601100 113 211  30.3000 $E [expr ($n+1)/$n*3000.0000] $K11_2 $K33_2 $K44_2 1; element ModElasticBeam2d 601200 123 221  30.3000 $E [expr ($n+1)/$n*3000.0000] $K11_2 $K33_2 $K44_2 1; element ModElasticBeam2d 601300 133 231  30.3000 $E [expr ($n+1)/$n*3000.0000] $K11_2 $K33_2 $K44_2 1; element ModElasticBeam2d 601400 143 241  30.3000 $E [expr ($n+1)/$n*3000.0000] $K11_2 $K33_2 $K44_2 1; 
+element ModElasticBeam2d   604100      413      511  18.3000 $E [expr ($n+1)/$n*1560.0000] $K11_2 $K33_2 $K44_2 $trans_selected; element ModElasticBeam2d   604200      423      521  18.3000 $E [expr ($n+1)/$n*1560.0000] $K11_2 $K33_2 $K44_2 $trans_selected; element ModElasticBeam2d   604300      433      531  18.3000 $E [expr ($n+1)/$n*1560.0000] $K11_2 $K33_2 $K44_2 $trans_selected; element ModElasticBeam2d   604400      443      541  18.3000 $E [expr ($n+1)/$n*1560.0000] $K11_2 $K33_2 $K44_2 $trans_selected; 
+element ModElasticBeam2d   603102   103172      411 18.3000 $E [expr ($n+1)/$n*1560.0000] $K33_1 $K11_1 $K44_1 $trans_selected;  element ModElasticBeam2d   603202   103272      421 18.3000 $E [expr ($n+1)/$n*1560.0000] $K33_1 $K11_1 $K44_1 $trans_selected;  element ModElasticBeam2d   603302   103372      431 18.3000 $E [expr ($n+1)/$n*1560.0000] $K33_1 $K11_1 $K44_1 $trans_selected;  element ModElasticBeam2d   603402   103472      441 18.3000 $E [expr ($n+1)/$n*1560.0000] $K33_1 $K11_1 $K44_1 $trans_selected;  
+element ModElasticBeam2d   603101      313   103171 30.3000 $E [expr ($n+1)/$n*3000.0000] $K33_1 $K11_1 $K44_1 $trans_selected;  element ModElasticBeam2d   603201      323   103271 30.3000 $E [expr ($n+1)/$n*3000.0000] $K33_1 $K11_1 $K44_1 $trans_selected;  element ModElasticBeam2d   603301      333   103371 30.3000 $E [expr ($n+1)/$n*3000.0000] $K33_1 $K11_1 $K44_1 $trans_selected;  element ModElasticBeam2d   603401      343   103471 30.3000 $E [expr ($n+1)/$n*3000.0000] $K33_1 $K11_1 $K44_1 $trans_selected;  
+element ModElasticBeam2d   602100      213      311  30.3000 $E [expr ($n+1)/$n*3000.0000] $K11_2 $K33_2 $K44_2 $trans_selected; element ModElasticBeam2d   602200      223      321  30.3000 $E [expr ($n+1)/$n*3000.0000] $K11_2 $K33_2 $K44_2 $trans_selected; element ModElasticBeam2d   602300      233      331  30.3000 $E [expr ($n+1)/$n*3000.0000] $K11_2 $K33_2 $K44_2 $trans_selected; element ModElasticBeam2d   602400      243      341  30.3000 $E [expr ($n+1)/$n*3000.0000] $K11_2 $K33_2 $K44_2 $trans_selected; 
+element ModElasticBeam2d   601100      113      211  30.3000 $E [expr ($n+1)/$n*3000.0000] $K11_2 $K33_2 $K44_2 $trans_selected; element ModElasticBeam2d   601200      123      221  30.3000 $E [expr ($n+1)/$n*3000.0000] $K11_2 $K33_2 $K44_2 $trans_selected; element ModElasticBeam2d   601300      133      231  30.3000 $E [expr ($n+1)/$n*3000.0000] $K11_2 $K33_2 $K44_2 $trans_selected; element ModElasticBeam2d   601400      143      241  30.3000 $E [expr ($n+1)/$n*3000.0000] $K11_2 $K33_2 $K44_2 $trans_selected; 
 
 # BEAMS
-element ModElasticBeam2d 505100 514 522  16.700 $E [expr ($n+1)/$n*0.90*$Comp_I*1170.000] $K11_2 $K33_2 $K44_2 1; element ModElasticBeam2d 505200 524 532  16.700 $E [expr ($n+1)/$n*0.90*$Comp_I*1170.000] $K11_2 $K33_2 $K44_2 1; element ModElasticBeam2d 505300 534 542  16.700 $E [expr ($n+1)/$n*0.90*$Comp_I*1170.000] $K11_2 $K33_2 $K44_2 1; 
-element ModElasticBeam2d 504100 414 422  16.700 $E [expr ($n+1)/$n*0.90*$Comp_I*1170.000] $K11_2 $K33_2 $K44_2 1; element ModElasticBeam2d 504200 424 432  16.700 $E [expr ($n+1)/$n*0.90*$Comp_I*1170.000] $K11_2 $K33_2 $K44_2 1; element ModElasticBeam2d 504300 434 442  16.700 $E [expr ($n+1)/$n*0.90*$Comp_I*1170.000] $K11_2 $K33_2 $K44_2 1; 
-element ModElasticBeam2d 503100 314 322  21.500 $E [expr ($n+1)/$n*0.90*$Comp_I*1600.000] $K11_2 $K33_2 $K44_2 1; element ModElasticBeam2d 503200 324 332  21.500 $E [expr ($n+1)/$n*0.90*$Comp_I*1600.000] $K11_2 $K33_2 $K44_2 1; element ModElasticBeam2d 503300 334 342  21.500 $E [expr ($n+1)/$n*0.90*$Comp_I*1600.000] $K11_2 $K33_2 $K44_2 1; 
-element ModElasticBeam2d 502100 214 222  21.500 $E [expr ($n+1)/$n*0.90*$Comp_I*1600.000] $K11_2 $K33_2 $K44_2 1; element ModElasticBeam2d 502200 224 232  21.500 $E [expr ($n+1)/$n*0.90*$Comp_I*1600.000] $K11_2 $K33_2 $K44_2 1; element ModElasticBeam2d 502300 234 242  21.500 $E [expr ($n+1)/$n*0.90*$Comp_I*1600.000] $K11_2 $K33_2 $K44_2 1; 
+element ModElasticBeam2d   505100      514      522  16.7000 $E [expr ($n+1)/$n*0.90*$Comp_I*1170.0000] $K11_2 $K33_2 $K44_2 $trans_selected; element ModElasticBeam2d   505200      524      532  16.7000 $E [expr ($n+1)/$n*0.90*$Comp_I*1170.0000] $K11_2 $K33_2 $K44_2 $trans_selected; element ModElasticBeam2d   505300      534      542  16.7000 $E [expr ($n+1)/$n*0.90*$Comp_I*1170.0000] $K11_2 $K33_2 $K44_2 $trans_selected; 
+element ModElasticBeam2d   504100      414      422  16.7000 $E [expr ($n+1)/$n*0.90*$Comp_I*1170.0000] $K11_2 $K33_2 $K44_2 $trans_selected; element ModElasticBeam2d   504200      424      432  16.7000 $E [expr ($n+1)/$n*0.90*$Comp_I*1170.0000] $K11_2 $K33_2 $K44_2 $trans_selected; element ModElasticBeam2d   504300      434      442  16.7000 $E [expr ($n+1)/$n*0.90*$Comp_I*1170.0000] $K11_2 $K33_2 $K44_2 $trans_selected; 
+element ModElasticBeam2d   503100      314      322  21.5000 $E [expr ($n+1)/$n*0.90*$Comp_I*1600.0000] $K11_2 $K33_2 $K44_2 $trans_selected; element ModElasticBeam2d   503200      324      332  21.5000 $E [expr ($n+1)/$n*0.90*$Comp_I*1600.0000] $K11_2 $K33_2 $K44_2 $trans_selected; element ModElasticBeam2d   503300      334      342  21.5000 $E [expr ($n+1)/$n*0.90*$Comp_I*1600.0000] $K11_2 $K33_2 $K44_2 $trans_selected; 
+element ModElasticBeam2d   502100      214      222  21.5000 $E [expr ($n+1)/$n*0.90*$Comp_I*1600.0000] $K11_2 $K33_2 $K44_2 $trans_selected; element ModElasticBeam2d   502200      224      232  21.5000 $E [expr ($n+1)/$n*0.90*$Comp_I*1600.0000] $K11_2 $K33_2 $K44_2 $trans_selected; element ModElasticBeam2d   502300      234      242  21.5000 $E [expr ($n+1)/$n*0.90*$Comp_I*1600.0000] $K11_2 $K33_2 $K44_2 $trans_selected; 
 
 ####################################################################################################
 #                                      ELASTIC RBS ELEMENTS                                        #
 ####################################################################################################
 
-element elasticBeamColumn 505104 405104 5140 14.568 $E [expr 1.4*947.023] 1; element elasticBeamColumn 505202 405202 5220 14.568 $E [expr 1.4*947.023] 1; element elasticBeamColumn 505204 405204 5240 14.568 $E [expr 1.4*947.023] 1; element elasticBeamColumn 505302 405302 5320 14.568 $E [expr 1.4*947.023] 1; element elasticBeamColumn 505304 405304 5340 14.568 $E [expr 1.4*947.023] 1; element elasticBeamColumn 505402 405402 5420 14.568 $E [expr 1.4*947.023] 1; 
-element elasticBeamColumn 504104 404104 4140 14.568 $E [expr 1.4*947.023] 1; element elasticBeamColumn 504202 404202 4220 14.568 $E [expr 1.4*947.023] 1; element elasticBeamColumn 504204 404204 4240 14.568 $E [expr 1.4*947.023] 1; element elasticBeamColumn 504302 404302 4320 14.568 $E [expr 1.4*947.023] 1; element elasticBeamColumn 504304 404304 4340 14.568 $E [expr 1.4*947.023] 1; element elasticBeamColumn 504402 404402 4420 14.568 $E [expr 1.4*947.023] 1; 
-element elasticBeamColumn 503104 403104 3140 18.429 $E [expr 1.4*1278.471] 1; element elasticBeamColumn 503202 403202 3220 18.429 $E [expr 1.4*1278.471] 1; element elasticBeamColumn 503204 403204 3240 18.429 $E [expr 1.4*1278.471] 1; element elasticBeamColumn 503302 403302 3320 18.429 $E [expr 1.4*1278.471] 1; element elasticBeamColumn 503304 403304 3340 18.429 $E [expr 1.4*1278.471] 1; element elasticBeamColumn 503402 403402 3420 18.429 $E [expr 1.4*1278.471] 1; 
-element elasticBeamColumn 502104 402104 2140 18.429 $E [expr 1.4*1278.471] 1; element elasticBeamColumn 502202 402202 2220 18.429 $E [expr 1.4*1278.471] 1; element elasticBeamColumn 502204 402204 2240 18.429 $E [expr 1.4*1278.471] 1; element elasticBeamColumn 502302 402302 2320 18.429 $E [expr 1.4*1278.471] 1; element elasticBeamColumn 502304 402304 2340 18.429 $E [expr 1.4*1278.471] 1; element elasticBeamColumn 502402 402402 2420 18.429 $E [expr 1.4*1278.471] 1; 
+element elasticBeamColumn 505104 405104 5140 14.568 $E [expr $Comp_I*947.023] 1; element elasticBeamColumn 505202 405202 5220 14.568 $E [expr $Comp_I*947.023] 1; element elasticBeamColumn 505204 405204 5240 14.568 $E [expr $Comp_I*947.023] 1; element elasticBeamColumn 505302 405302 5320 14.568 $E [expr $Comp_I*947.023] 1; element elasticBeamColumn 505304 405304 5340 14.568 $E [expr $Comp_I*947.023] 1; element elasticBeamColumn 505402 405402 5420 14.568 $E [expr $Comp_I*947.023] 1; 
+element elasticBeamColumn 504104 404104 4140 14.568 $E [expr $Comp_I*947.023] 1; element elasticBeamColumn 504202 404202 4220 14.568 $E [expr $Comp_I*947.023] 1; element elasticBeamColumn 504204 404204 4240 14.568 $E [expr $Comp_I*947.023] 1; element elasticBeamColumn 504302 404302 4320 14.568 $E [expr $Comp_I*947.023] 1; element elasticBeamColumn 504304 404304 4340 14.568 $E [expr $Comp_I*947.023] 1; element elasticBeamColumn 504402 404402 4420 14.568 $E [expr $Comp_I*947.023] 1; 
+element elasticBeamColumn 503104 403104 3140 18.429 $E [expr $Comp_I*1278.471] 1; element elasticBeamColumn 503202 403202 3220 18.429 $E [expr $Comp_I*1278.471] 1; element elasticBeamColumn 503204 403204 3240 18.429 $E [expr $Comp_I*1278.471] 1; element elasticBeamColumn 503302 403302 3320 18.429 $E [expr $Comp_I*1278.471] 1; element elasticBeamColumn 503304 403304 3340 18.429 $E [expr $Comp_I*1278.471] 1; element elasticBeamColumn 503402 403402 3420 18.429 $E [expr $Comp_I*1278.471] 1; 
+element elasticBeamColumn 502104 402104 2140 18.429 $E [expr $Comp_I*1278.471] 1; element elasticBeamColumn 502202 402202 2220 18.429 $E [expr $Comp_I*1278.471] 1; element elasticBeamColumn 502204 402204 2240 18.429 $E [expr $Comp_I*1278.471] 1; element elasticBeamColumn 502302 402302 2320 18.429 $E [expr $Comp_I*1278.471] 1; element elasticBeamColumn 502304 402304 2340 18.429 $E [expr $Comp_I*1278.471] 1; element elasticBeamColumn 502402 402402 2420 18.429 $E [expr $Comp_I*1278.471] 1; 
 
 ###################################################################################################
-#                                 COLUMN AND BEAM PLASTIC SPRINGS                                 #
+#                                           MF BEAM SPRINGS                                       #
 ###################################################################################################
 
-# Command Syntax; 
-# Spring_IMK SpringID iNode jNode E Fy Ix d tw bf tf htw bftf ry L Ls Lb My PgPye CompositeFLAG MRFconnection Units; 
+# Command Syntax 
+# Spring_IMK SpringID iNode jNode E fy Ix d htw bftf ry L Ls Lb My PgPye CompositeFLAG MFconnection Units; 
 
-# BEAM SPRINGS
-Spring_IMK 905104 514  5140 $E $Fy [expr $Comp_I*724.046] 21.100 0.405 6.560 0.650 46.300 5.040 1.350 192.275 108.150 96.138 6358.136 0.0 $Composite 0 2; Spring_IMK 905202 5220 522  $E $Fy [expr $Comp_I*724.046] 21.100 0.405 6.560 0.650 46.300 5.040 1.350 192.275 108.150 96.138 6358.136 0.0 $Composite 0 2; Spring_IMK 905204 524  5240 $E $Fy [expr $Comp_I*724.046] 21.100 0.405 6.560 0.650 46.300 5.040 1.350 192.275 108.150 96.138 6358.136 0.0 $Composite 0 2; Spring_IMK 905302 5320 532  $E $Fy [expr $Comp_I*724.046] 21.100 0.405 6.560 0.650 46.300 5.040 1.350 192.275 108.150 96.138 6358.136 0.0 $Composite 0 2; Spring_IMK 905304 534  5340 $E $Fy [expr $Comp_I*724.046] 21.100 0.405 6.560 0.650 46.300 5.040 1.350 192.275 108.150 96.138 6358.136 0.0 $Composite 0 2; Spring_IMK 905402 5420 542  $E $Fy [expr $Comp_I*724.046] 21.100 0.405 6.560 0.650 46.300 5.040 1.350 192.275 108.150 96.138 6358.136 0.0 $Composite 0 2; 
-Spring_IMK 904104 414  4140 $E $Fy [expr $Comp_I*724.046] 21.100 0.405 6.560 0.650 46.300 5.040 1.350 191.475 107.750 95.737 6358.136 0.0 $Composite 0 2; Spring_IMK 904202 4220 422  $E $Fy [expr $Comp_I*724.046] 21.100 0.405 6.560 0.650 46.300 5.040 1.350 191.475 107.750 95.737 6358.136 0.0 $Composite 0 2; Spring_IMK 904204 424  4240 $E $Fy [expr $Comp_I*724.046] 21.100 0.405 6.560 0.650 46.300 5.040 1.350 191.475 107.750 95.737 6358.136 0.0 $Composite 0 2; Spring_IMK 904302 4320 432  $E $Fy [expr $Comp_I*724.046] 21.100 0.405 6.560 0.650 46.300 5.040 1.350 191.475 107.750 95.737 6358.136 0.0 $Composite 0 2; Spring_IMK 904304 434  4340 $E $Fy [expr $Comp_I*724.046] 21.100 0.405 6.560 0.650 46.300 5.040 1.350 191.475 107.750 95.737 6358.136 0.0 $Composite 0 2; Spring_IMK 904402 4420 442  $E $Fy [expr $Comp_I*724.046] 21.100 0.405 6.560 0.650 46.300 5.040 1.350 191.475 107.750 95.737 6358.136 0.0 $Composite 0 2; 
-Spring_IMK 903104 314  3140 $E $Fy [expr $Comp_I*956.942] 21.200 0.455 8.300 0.740 41.200 5.600 1.810 189.225 107.750 94.612 8378.276 0.0 $Composite 0 2; Spring_IMK 903202 3220 322  $E $Fy [expr $Comp_I*956.942] 21.200 0.455 8.300 0.740 41.200 5.600 1.810 189.225 107.750 94.612 8378.276 0.0 $Composite 0 2; Spring_IMK 903204 324  3240 $E $Fy [expr $Comp_I*956.942] 21.200 0.455 8.300 0.740 41.200 5.600 1.810 189.225 107.750 94.612 8378.276 0.0 $Composite 0 2; Spring_IMK 903302 3320 332  $E $Fy [expr $Comp_I*956.942] 21.200 0.455 8.300 0.740 41.200 5.600 1.810 189.225 107.750 94.612 8378.276 0.0 $Composite 0 2; Spring_IMK 903304 334  3340 $E $Fy [expr $Comp_I*956.942] 21.200 0.455 8.300 0.740 41.200 5.600 1.810 189.225 107.750 94.612 8378.276 0.0 $Composite 0 2; Spring_IMK 903402 3420 342  $E $Fy [expr $Comp_I*956.942] 21.200 0.455 8.300 0.740 41.200 5.600 1.810 189.225 107.750 94.612 8378.276 0.0 $Composite 0 2; 
-Spring_IMK 902104 214  2140 $E $Fy [expr $Comp_I*956.942] 21.200 0.455 8.300 0.740 41.200 5.600 1.810 189.225 107.750 94.612 8378.276 0.0 $Composite 0 2; Spring_IMK 902202 2220 222  $E $Fy [expr $Comp_I*956.942] 21.200 0.455 8.300 0.740 41.200 5.600 1.810 189.225 107.750 94.612 8378.276 0.0 $Composite 0 2; Spring_IMK 902204 224  2240 $E $Fy [expr $Comp_I*956.942] 21.200 0.455 8.300 0.740 41.200 5.600 1.810 189.225 107.750 94.612 8378.276 0.0 $Composite 0 2; Spring_IMK 902302 2320 232  $E $Fy [expr $Comp_I*956.942] 21.200 0.455 8.300 0.740 41.200 5.600 1.810 189.225 107.750 94.612 8378.276 0.0 $Composite 0 2; Spring_IMK 902304 234  2340 $E $Fy [expr $Comp_I*956.942] 21.200 0.455 8.300 0.740 41.200 5.600 1.810 189.225 107.750 94.612 8378.276 0.0 $Composite 0 2; Spring_IMK 902402 2420 242  $E $Fy [expr $Comp_I*956.942] 21.200 0.455 8.300 0.740 41.200 5.600 1.810 189.225 107.750 94.612 8378.276 0.0 $Composite 0 2; 
+Spring_IMK 905104 514 5140 $E $fy [expr $Comp_I*724.046] 21.100 46.300 5.040 1.350 192.275 96.138 108.150 5039.254 0.0 $Composite 0 2; Spring_IMK 905202 5220 522 $E $fy [expr $Comp_I*724.046] 21.100 46.300 5.040 1.350 192.275 96.138 108.150 5039.254 0.0 $Composite 0 2; Spring_IMK 905204 524 5240 $E $fy [expr $Comp_I*724.046] 21.100 46.300 5.040 1.350 192.275 96.138 108.150 5039.254 0.0 $Composite 0 2; Spring_IMK 905302 5320 532 $E $fy [expr $Comp_I*724.046] 21.100 46.300 5.040 1.350 192.275 96.138 108.150 5039.254 0.0 $Composite 0 2; Spring_IMK 905304 534 5340 $E $fy [expr $Comp_I*724.046] 21.100 46.300 5.040 1.350 192.275 96.138 108.150 5039.254 0.0 $Composite 0 2; Spring_IMK 905402 5420 542 $E $fy [expr $Comp_I*724.046] 21.100 46.300 5.040 1.350 192.275 96.138 108.150 5039.254 0.0 $Composite 0 2; 
+Spring_IMK 904104 414 4140 $E $fy [expr $Comp_I*724.046] 21.100 46.300 5.040 1.350 192.275 96.138 108.150 5039.254 0.0 $Composite 0 2; Spring_IMK 904202 4220 422 $E $fy [expr $Comp_I*724.046] 21.100 46.300 5.040 1.350 192.275 96.138 108.150 5039.254 0.0 $Composite 0 2; Spring_IMK 904204 424 4240 $E $fy [expr $Comp_I*724.046] 21.100 46.300 5.040 1.350 192.275 96.138 108.150 5039.254 0.0 $Composite 0 2; Spring_IMK 904302 4320 432 $E $fy [expr $Comp_I*724.046] 21.100 46.300 5.040 1.350 192.275 96.138 108.150 5039.254 0.0 $Composite 0 2; Spring_IMK 904304 434 4340 $E $fy [expr $Comp_I*724.046] 21.100 46.300 5.040 1.350 192.275 96.138 108.150 5039.254 0.0 $Composite 0 2; Spring_IMK 904402 4420 442 $E $fy [expr $Comp_I*724.046] 21.100 46.300 5.040 1.350 192.275 96.138 108.150 5039.254 0.0 $Composite 0 2; 
+Spring_IMK 903104 314 3140 $E $fy [expr $Comp_I*956.942] 21.200 41.200 5.600 1.810 189.225 94.612 107.750 6477.588 0.0 $Composite 0 2; Spring_IMK 903202 3220 322 $E $fy [expr $Comp_I*956.942] 21.200 41.200 5.600 1.810 189.225 94.612 107.750 6477.588 0.0 $Composite 0 2; Spring_IMK 903204 324 3240 $E $fy [expr $Comp_I*956.942] 21.200 41.200 5.600 1.810 189.225 94.612 107.750 6477.588 0.0 $Composite 0 2; Spring_IMK 903302 3320 332 $E $fy [expr $Comp_I*956.942] 21.200 41.200 5.600 1.810 189.225 94.612 107.750 6477.588 0.0 $Composite 0 2; Spring_IMK 903304 334 3340 $E $fy [expr $Comp_I*956.942] 21.200 41.200 5.600 1.810 189.225 94.612 107.750 6477.588 0.0 $Composite 0 2; Spring_IMK 903402 3420 342 $E $fy [expr $Comp_I*956.942] 21.200 41.200 5.600 1.810 189.225 94.612 107.750 6477.588 0.0 $Composite 0 2; 
+Spring_IMK 902104 214 2140 $E $fy [expr $Comp_I*956.942] 21.200 41.200 5.600 1.810 189.225 94.612 107.750 6477.588 0.0 $Composite 0 2; Spring_IMK 902202 2220 222 $E $fy [expr $Comp_I*956.942] 21.200 41.200 5.600 1.810 189.225 94.612 107.750 6477.588 0.0 $Composite 0 2; Spring_IMK 902204 224 2240 $E $fy [expr $Comp_I*956.942] 21.200 41.200 5.600 1.810 189.225 94.612 107.750 6477.588 0.0 $Composite 0 2; Spring_IMK 902302 2320 232 $E $fy [expr $Comp_I*956.942] 21.200 41.200 5.600 1.810 189.225 94.612 107.750 6477.588 0.0 $Composite 0 2; Spring_IMK 902304 234 2340 $E $fy [expr $Comp_I*956.942] 21.200 41.200 5.600 1.810 189.225 94.612 107.750 6477.588 0.0 $Composite 0 2; Spring_IMK 902402 2420 242 $E $fy [expr $Comp_I*956.942] 21.200 41.200 5.600 1.810 189.225 94.612 107.750 6477.588 0.0 $Composite 0 2; 
 
-# Column Springs
-Spring_IMK 905101 511 405101 $E $Fy 1560.000 23.700 0.430 7.040 0.590 49.700 5.970 1.370 134.900 67.450 134.900  9317.000 0.035 0 2 2; Spring_IMK 905201 521 405201 $E $Fy 1560.000 23.700 0.430 7.040 0.590 49.700 5.970 1.370 134.900 67.450 134.900 9317.000 0.023 0 2 2; Spring_IMK 905301 531 405301 $E $Fy 1560.000 23.700 0.430 7.040 0.590 49.700 5.970 1.370 134.900 67.450 134.900 9317.000 0.023 0 2 2; Spring_IMK 905401 541 405401 $E $Fy 1560.000 23.700 0.430 7.040 0.590 49.700 5.970 1.370 134.900 67.450 134.900 9317.000 0.035 0 2 2; 
-Spring_IMK 904103 413 404103 $E $Fy 1560.000 23.700 0.430 7.040 0.590 49.700 5.970 1.370 134.900 67.450 134.900  9317.000 0.035 0 2 2; Spring_IMK 904203 423 404203 $E $Fy 1560.000 23.700 0.430 7.040 0.590 49.700 5.970 1.370 134.900 67.450 134.900 9317.000 0.023 0 2 2; Spring_IMK 904303 433 404303 $E $Fy 1560.000 23.700 0.430 7.040 0.590 49.700 5.970 1.370 134.900 67.450 134.900 9317.000 0.023 0 2 2; Spring_IMK 904403 443 404403 $E $Fy 1560.000 23.700 0.430 7.040 0.590 49.700 5.970 1.370 134.900 67.450 134.900 9317.000 0.035 0 2 2; 
-Spring_IMK 904101 411 404101 $E $Fy 1560.000 23.700 0.430 7.040 0.590 49.700 5.970 1.370 134.900 67.450 134.900  9317.000 0.035 0 2 2; Spring_IMK 904201 421 404201 $E $Fy 1560.000 23.700 0.430 7.040 0.590 49.700 5.970 1.370 134.900 67.450 134.900 9317.000 0.023 0 2 2; Spring_IMK 904301 431 404301 $E $Fy 1560.000 23.700 0.430 7.040 0.590 49.700 5.970 1.370 134.900 67.450 134.900 9317.000 0.023 0 2 2; Spring_IMK 904401 441 404401 $E $Fy 1560.000 23.700 0.430 7.040 0.590 49.700 5.970 1.370 134.900 67.450 134.900 9317.000 0.035 0 2 2; 
-Spring_IMK 903103 313 403103 $E $Fy 3000.000 24.500 0.550 9.000 0.980 39.200 4.590 1.990 134.850 67.425 134.850 16940.000 0.046 0 2 2; Spring_IMK 903203 323 403203 $E $Fy 3000.000 24.500 0.550 9.000 0.980 39.200 4.590 1.990 134.850 67.425 134.850 16940.000 0.031 0 2 2; Spring_IMK 903303 333 403303 $E $Fy 3000.000 24.500 0.550 9.000 0.980 39.200 4.590 1.990 134.850 67.425 134.850 16940.000 0.031 0 2 2; Spring_IMK 903403 343 403403 $E $Fy 3000.000 24.500 0.550 9.000 0.980 39.200 4.590 1.990 134.850 67.425 134.850 16940.000 0.046 0 2 2; 
-Spring_IMK 903101 311 403101 $E $Fy 3000.000 24.500 0.550 9.000 0.980 39.200 4.590 1.990 134.800 67.400 134.800 16940.000 0.046 0 2 2; Spring_IMK 903201 321 403201 $E $Fy 3000.000 24.500 0.550 9.000 0.980 39.200 4.590 1.990 134.800 67.400 134.800 16940.000 0.031 0 2 2; Spring_IMK 903301 331 403301 $E $Fy 3000.000 24.500 0.550 9.000 0.980 39.200 4.590 1.990 134.800 67.400 134.800 16940.000 0.031 0 2 2; Spring_IMK 903401 341 403401 $E $Fy 3000.000 24.500 0.550 9.000 0.980 39.200 4.590 1.990 134.800 67.400 134.800 16940.000 0.046 0 2 2; 
-Spring_IMK 902103 213 402103 $E $Fy 3000.000 24.500 0.550 9.000 0.980 39.200 4.590 1.990 158.800 79.400 158.800 16940.000 0.072 0 2 2; Spring_IMK 902203 223 402203 $E $Fy 3000.000 24.500 0.550 9.000 0.980 39.200 4.590 1.990 158.800 79.400 158.800 16940.000 0.048 0 2 2; Spring_IMK 902303 233 402303 $E $Fy 3000.000 24.500 0.550 9.000 0.980 39.200 4.590 1.990 158.800 79.400 158.800 16940.000 0.048 0 2 2; Spring_IMK 902403 243 402403 $E $Fy 3000.000 24.500 0.550 9.000 0.980 39.200 4.590 1.990 158.800 79.400 158.800 16940.000 0.072 0 2 2; 
-Spring_IMK 902101 211 402101 $E $Fy 3000.000 24.500 0.550 9.000 0.980 39.200 4.590 1.990 158.800 79.400 158.800 16940.000 0.072 0 2 2; Spring_IMK 902201 221 402201 $E $Fy 3000.000 24.500 0.550 9.000 0.980 39.200 4.590 1.990 158.800 79.400 158.800 16940.000 0.048 0 2 2; Spring_IMK 902301 231 402301 $E $Fy 3000.000 24.500 0.550 9.000 0.980 39.200 4.590 1.990 158.800 79.400 158.800 16940.000 0.048 0 2 2; Spring_IMK 902401 241 402401 $E $Fy 3000.000 24.500 0.550 9.000 0.980 39.200 4.590 1.990 158.800 79.400 158.800 16940.000 0.072 0 2 2; 
-Spring_IMK 901103 11  113 	 $E $Fy 3000.000 24.500 0.550 9.000 0.980 39.200 4.590 1.990 169.400 84.700 169.400 16940.000 0.098 0 2 2; Spring_IMK 901203 12  123 	$E $Fy 3000.000 24.500 0.550 9.000 0.980 39.200 4.590 1.990 169.400 84.700 169.400 16940.000 0.065 0 2 2; Spring_IMK 901303 13 133 $E $Fy 3000.000 24.500 0.550 9.000 0.980 39.200 4.590 1.990 169.400 84.700 169.400 16940.000 0.065 0 2 2; Spring_IMK 901403 14 143 $E $Fy 3000.000 24.500 0.550 9.000 0.980 39.200 4.590 1.990 169.400 84.700 169.400 16940.000 0.098 0 2 2; 
+###################################################################################################
+#                                           MF COLUMN SPRINGS                                     #
+###################################################################################################
+
+Spring_IMK  905101  405101     511 $E $fy 1560.0000 23.7000 49.7000 5.9700 1.3700 134.9000 67.4500 134.9000 9317.0000 0.0232  0 0 2; Spring_IMK  905201  405201     521 $E $fy 1560.0000 23.7000 49.7000 5.9700 1.3700 134.9000 67.4500 134.9000 9317.0000 0.0347  0 0 2; Spring_IMK  905301  405301     531 $E $fy 1560.0000 23.7000 49.7000 5.9700 1.3700 134.9000 67.4500 134.9000 9317.0000 0.0347  0 0 2; Spring_IMK  905401  405401     541 $E $fy 1560.0000 23.7000 49.7000 5.9700 1.3700 134.9000 67.4500 134.9000 9317.0000 0.0232  0 0 2; 
+Spring_IMK  904103  404103     413 $E $fy 1560.0000 23.7000 49.7000 5.9700 1.3700 134.9000 67.4500 134.9000 9317.0000 0.0232  0 0 2; Spring_IMK  904203  404203     423 $E $fy 1560.0000 23.7000 49.7000 5.9700 1.3700 134.9000 67.4500 134.9000 9317.0000 0.0347  0 0 2; Spring_IMK  904303  404303     433 $E $fy 1560.0000 23.7000 49.7000 5.9700 1.3700 134.9000 67.4500 134.9000 9317.0000 0.0347  0 0 2; Spring_IMK  904403  404403     443 $E $fy 1560.0000 23.7000 49.7000 5.9700 1.3700 134.9000 67.4500 134.9000 9317.0000 0.0232  0 0 2; 
+Spring_IMK  904101  404101     411 $E $fy 1560.0000 23.7000 49.7000 5.9700 1.3700 134.9000 67.4500 134.9000 9317.0000 0.0512  0 0 2; Spring_IMK  904201  404201     421 $E $fy 1560.0000 23.7000 49.7000 5.9700 1.3700 134.9000 67.4500 134.9000 9317.0000 0.0768  0 0 2; Spring_IMK  904301  404301     431 $E $fy 1560.0000 23.7000 49.7000 5.9700 1.3700 134.9000 67.4500 134.9000 9317.0000 0.0768  0 0 2; Spring_IMK  904401  404401     441 $E $fy 1560.0000 23.7000 49.7000 5.9700 1.3700 134.9000 67.4500 134.9000 9317.0000 0.0512  0 0 2; 
+Spring_IMK  903103  403103     313 $E $fy 3000.0000 24.5000 39.2000 4.5900 1.9900 134.8500 67.4250 134.8500 16940.0000 0.0309  0 0 2; Spring_IMK  903203  403203     323 $E $fy 3000.0000 24.5000 39.2000 4.5900 1.9900 134.8500 67.4250 134.8500 16940.0000 0.0464  0 0 2; Spring_IMK  903303  403303     333 $E $fy 3000.0000 24.5000 39.2000 4.5900 1.9900 134.8500 67.4250 134.8500 16940.0000 0.0464  0 0 2; Spring_IMK  903403  403403     343 $E $fy 3000.0000 24.5000 39.2000 4.5900 1.9900 134.8500 67.4250 134.8500 16940.0000 0.0309  0 0 2; 
+Spring_IMK  903101  403101     311 $E $fy 3000.0000 24.5000 39.2000 4.5900 1.9900 134.8000 67.4000 134.8000 16940.0000 0.0479  0 0 2; Spring_IMK  903201  403201     321 $E $fy 3000.0000 24.5000 39.2000 4.5900 1.9900 134.8000 67.4000 134.8000 16940.0000 0.0718  0 0 2; Spring_IMK  903301  403301     331 $E $fy 3000.0000 24.5000 39.2000 4.5900 1.9900 134.8000 67.4000 134.8000 16940.0000 0.0718  0 0 2; Spring_IMK  903401  403401     341 $E $fy 3000.0000 24.5000 39.2000 4.5900 1.9900 134.8000 67.4000 134.8000 16940.0000 0.0479  0 0 2; 
+Spring_IMK  902103  402103     213 $E $fy 3000.0000 24.5000 39.2000 4.5900 1.9900 134.8000 67.4000 134.8000 16940.0000 0.0479  0 0 2; Spring_IMK  902203  402203     223 $E $fy 3000.0000 24.5000 39.2000 4.5900 1.9900 134.8000 67.4000 134.8000 16940.0000 0.0718  0 0 2; Spring_IMK  902303  402303     233 $E $fy 3000.0000 24.5000 39.2000 4.5900 1.9900 134.8000 67.4000 134.8000 16940.0000 0.0718  0 0 2; Spring_IMK  902403  402403     243 $E $fy 3000.0000 24.5000 39.2000 4.5900 1.9900 134.8000 67.4000 134.8000 16940.0000 0.0479  0 0 2; 
+Spring_IMK  902101  402101     211 $E $fy 3000.0000 24.5000 39.2000 4.5900 1.9900 169.4000 84.7000 169.4000 16940.0000 0.0651  0 0 2; Spring_IMK  902201  402201     221 $E $fy 3000.0000 24.5000 39.2000 4.5900 1.9900 169.4000 84.7000 169.4000 16940.0000 0.0977  0 0 2; Spring_IMK  902301  402301     231 $E $fy 3000.0000 24.5000 39.2000 4.5900 1.9900 169.4000 84.7000 169.4000 16940.0000 0.0977  0 0 2; Spring_IMK  902401  402401     241 $E $fy 3000.0000 24.5000 39.2000 4.5900 1.9900 169.4000 84.7000 169.4000 16940.0000 0.0651  0 0 2; 
+Spring_IMK  901103     110     113 $E $fy 3000.0000 24.5000 39.2000 4.5900 1.9900 169.4000 84.7000 169.4000 16940.0000 0.0651  0 0 2; Spring_IMK  901203     120     123 $E $fy 3000.0000 24.5000 39.2000 4.5900 1.9900 169.4000 84.7000 169.4000 16940.0000 0.0977  0 0 2; Spring_IMK  901303     130     133 $E $fy 3000.0000 24.5000 39.2000 4.5900 1.9900 169.4000 84.7000 169.4000 16940.0000 0.0977  0 0 2; Spring_IMK  901403     140     143 $E $fy 3000.0000 24.5000 39.2000 4.5900 1.9900 169.4000 84.7000 169.4000 16940.0000 0.0651  0 0 2; 
+
+###################################################################################################
+#                                          COLUMN SPLICE SPRINGS                                  #
+###################################################################################################
+
+Spring_Rigid 903107 103171 103172; 
+Spring_Rigid 903207 103271 103272; 
+Spring_Rigid 903307 103371 103372; 
+Spring_Rigid 903407 103471 103472; 
+Spring_Rigid 903507 103571 103572; 
+Spring_Rigid 903607 103671 103672; 
 
 ####################################################################################################
-#                                          RIGID FLOOR LINKS                                       #
+#                                              FLOOR LINKS                                         #
 ####################################################################################################
 
-# COMMAND SYNTAX 
+# Command Syntax 
 # element truss $ElementID $iNode $jNode $Area $matID
-element truss 1005 405404 55 $A_Stiff 99;
-element truss 1004 404404 45 $A_Stiff 99;
-element truss 1003 403404 35 $A_Stiff 99;
-element truss 1002 402404 25 $A_Stiff 99;
+element truss 1005 405404 550 $A_Stiff 99;
+element truss 1004 404404 450 $A_Stiff 99;
+element truss 1003 403404 350 $A_Stiff 99;
+element truss 1002 402404 250 $A_Stiff 99;
 
 ####################################################################################################
-#                              EQUIVELANT GRAVITY COLUMNS AND BEAMS                                #
+#                                          EGF COLUMNS AND BEAMS                                   #
 ####################################################################################################
 
-# Gravity Columns
-element elasticBeamColumn  604500  453  551  [expr 53.000 / 2] $E [expr (724.000  + 138.000) / 2] 1; element elasticBeamColumn  604600  463  561  [expr 53.000 / 2] $E [expr (724.000  + 138.000) / 2] 1; 
-element elasticBeamColumn  603502  103570 451  [expr 212.000 / 2] $E [expr (724.000  + 138.000) / 2] 1;  element elasticBeamColumn 603602 103670 461  [expr 212.000 / 2] $E [expr (724.000  + 138.000) / 2] 1;  
-element elasticBeamColumn  603501  353 103570  [expr 53.000 / 2] $E [expr (724.000  + 476.000) / 2] 1;  element elasticBeamColumn 603601 363 103670  [expr 53.000 / 2] $E [expr (724.000  + 476.000) / 2] 1;  
-element elasticBeamColumn  602500  253  351  [expr 53.000 / 2] $E [expr (724.000  + 476.000) / 2] 1; element elasticBeamColumn  602600  263  361  [expr 53.000 / 2] $E [expr (724.000  + 476.000) / 2] 1; 
-element elasticBeamColumn  601500  153  251  [expr 53.000 / 2] $E [expr (724.000  + 476.000) / 2] 1; element elasticBeamColumn  601600  163  261  [expr 53.000 / 2] $E [expr (724.000  + 476.000) / 2] 1; 
+# GRAVITY COLUMNS
+element elasticBeamColumn  604500     453     551 66.2500 $E [expr (905.0000  + 138.0000)] $trans_PDelta; element elasticBeamColumn  604600     463     561 66.2500 $E [expr (905.0000  + 138.0000)] $trans_PDelta; 
+element elasticBeamColumn  603502  103572     451 66.2500 $E [expr (905.0000  + 138.0000)] $trans_PDelta; element elasticBeamColumn  603602  103672     461 66.2500 $E [expr (905.0000  + 138.0000)] $trans_PDelta; 
+element elasticBeamColumn  603501     353  103571 66.2500 $E [expr (905.0000  + 476.0000)] $trans_PDelta; element elasticBeamColumn  603601     363  103671 66.2500 $E [expr (905.0000  + 476.0000)] $trans_PDelta; 
+element elasticBeamColumn  602500     253     351 66.2500 $E [expr (905.0000  + 476.0000)] $trans_PDelta; element elasticBeamColumn  602600     263     361 66.2500 $E [expr (905.0000  + 476.0000)] $trans_PDelta; 
+element elasticBeamColumn  601500     153     251 66.2500 $E [expr (905.0000  + 476.0000)] $trans_PDelta; element elasticBeamColumn  601600     163     261 66.2500 $E [expr (905.0000  + 476.0000)] $trans_PDelta; 
 
-# Gravity Beams
-element elasticBeamColumn  505400 554  562  81.500  $E [expr $Comp_I_GC * 6800.000] 1;
-element elasticBeamColumn  504400 454  462  81.500  $E [expr $Comp_I_GC * 6800.000] 1;
-element elasticBeamColumn  503400 354  362  81.500  $E [expr $Comp_I_GC * 6800.000] 1;
-element elasticBeamColumn  502400 254  262  81.500  $E [expr $Comp_I_GC * 6800.000] 1;
+# GRAVITY BEAMS
+element elasticBeamColumn  505400     554     562 97.8000 $E [expr $Comp_I_GC * 8160.0000] $trans_PDelta;
+element elasticBeamColumn  504400     454     462 97.8000 $E [expr $Comp_I_GC * 8160.0000] $trans_PDelta;
+element elasticBeamColumn  503400     354     362 97.8000 $E [expr $Comp_I_GC * 8160.0000] $trans_PDelta;
+element elasticBeamColumn  502400     254     262 97.8000 $E [expr $Comp_I_GC * 8160.0000] $trans_PDelta;
 
-# Gravity Columns Springs
-Spring_IMK  905501 55 551 $E $Fy [expr (724.000 + 138.000)/2] 14.000 0.440 14.500 0.710 25.900 10.200 3.700 156.000 78.000 156.000 12971.200 0.0 0 2 2; Spring_IMK  905601 56 561 $E $Fy [expr (724.000 + 138.000)/2] 14.000 0.440 14.500 0.710 25.900 10.200 3.700 156.000 78.000 156.000 12971.200 0.0 0 2 2; 
-Spring_IMK  904503 45 453 $E $Fy [expr (724.000 + 138.000)/2] 14.000 0.440 14.500 0.710 25.900 10.200 3.700 156.000 78.000 156.000 12971.200 0.0 0 2 2; Spring_IMK  904603 46 463 $E $Fy [expr (724.000 + 138.000)/2] 14.000 0.440 14.500 0.710 25.900 10.200 3.700 156.000 78.000 156.000 12971.200 0.0 0 2 2; 
-Spring_IMK  904501 45 451 $E $Fy [expr (724.000 + 138.000)/2] 14.000 0.440 14.500 0.710 25.900 10.200 3.700 156.000 78.000 156.000 12971.200 0.0 0 2 2; Spring_IMK  904601 46 461 $E $Fy [expr (724.000 + 138.000)/2] 14.000 0.440 14.500 0.710 25.900 10.200 3.700 156.000 78.000 156.000 12971.200 0.0 0 2 2; 
-Spring_IMK  903503 35 353 $E $Fy [expr (724.000 + 476.000)/2] 14.000 0.440 14.500 0.710 25.900 10.200 3.700 156.000 78.000 156.000 19190.600 0.0 0 2 2; Spring_IMK  903603 36 363 $E $Fy [expr (724.000 + 476.000)/2] 14.000 0.440 14.500 0.710 25.900 10.200 3.700 156.000 78.000 156.000 19190.600 0.0 0 2 2; 
-Spring_IMK  903501 35 351 $E $Fy [expr (724.000 + 476.000)/2] 14.000 0.440 14.500 0.710 25.900 10.200 3.700 156.000 78.000 156.000 19190.600 0.0 0 2 2; Spring_IMK  903601 36 361 $E $Fy [expr (724.000 + 476.000)/2] 14.000 0.440 14.500 0.710 25.900 10.200 3.700 156.000 78.000 156.000 19190.600 0.0 0 2 2; 
-Spring_IMK  902503 25 253 $E $Fy [expr (724.000 + 476.000)/2] 14.000 0.440 14.500 0.710 25.900 10.200 3.700 156.000 78.000 156.000 19190.600 0.0 0 2 2; Spring_IMK  902603 26 263 $E $Fy [expr (724.000 + 476.000)/2] 14.000 0.440 14.500 0.710 25.900 10.200 3.700 156.000 78.000 156.000 19190.600 0.0 0 2 2; 
-Spring_IMK  902501 25 251 $E $Fy [expr (724.000 + 476.000)/2] 14.000 0.440 14.500 0.710 25.900 10.200 3.700 156.000 78.000 156.000 19190.600 0.0 0 2 2; Spring_IMK  902601 26 261 $E $Fy [expr (724.000 + 476.000)/2] 14.000 0.440 14.500 0.710 25.900 10.200 3.700 156.000 78.000 156.000 19190.600 0.0 0 2 2; 
-Spring_IMK  901503 15 153 $E $Fy [expr 476.000/2] 			  14.000 0.440 14.500 0.710 25.900 10.200 3.700 180.000 90.000 180.000 10043.000 0.0 0 2 2; Spring_IMK  901603 16 163 $E $Fy [expr 476.000/2] 			  14.000 0.440 14.500 0.710 25.900 10.200 3.700 180.000 90.000 180.000 10043.000 0.0 0 2 2; 
+# GRAVITY COLUMNS SPRINGS
+Spring_IMK   905501     550     551 $E $fy [expr (905.0000 + 138.0000)] 14.0000 25.9000 10.2000 3.7000 156.0000 78.0000 156.0000 15258.1000 0 $Composite 0 2; Spring_IMK   905601     560     561 $E $fy [expr (905.0000 + 138.0000)] 14.0000 25.9000 10.2000 3.7000 156.0000 78.0000 156.0000 15258.1000 0 $Composite 0 2; 
+Spring_IMK   904503     450     453 $E $fy [expr (905.0000 + 138.0000)] 14.0000 25.9000 10.2000 3.7000 156.0000 78.0000 156.0000 15258.1000 0 $Composite 0 2; Spring_IMK   904603     460     463 $E $fy [expr (905.0000 + 138.0000)] 14.0000 25.9000 10.2000 3.7000 156.0000 78.0000 156.0000 15258.1000 0 $Composite 0 2; 
+Spring_IMK   904501     450     451 $E $fy [expr (905.0000 + 138.0000)] 14.0000 25.9000 10.2000 3.7000 156.0000 78.0000 156.0000 15258.1000 0 $Composite 0 2; Spring_IMK   904601     460     461 $E $fy [expr (905.0000 + 138.0000)] 14.0000 25.9000 10.2000 3.7000 156.0000 78.0000 156.0000 15258.1000 0 $Composite 0 2; 
+Spring_IMK   903503     350     353 $E $fy [expr (905.0000 + 476.0000)] 14.0000 25.9000 10.2000 3.7000 156.0000 78.0000 156.0000 21477.5000 0 $Composite 0 2; Spring_IMK   903603     360     363 $E $fy [expr (905.0000 + 476.0000)] 14.0000 25.9000 10.2000 3.7000 156.0000 78.0000 156.0000 21477.5000 0 $Composite 0 2; 
+Spring_IMK   903501     350     351 $E $fy [expr (905.0000 + 476.0000)] 14.0000 25.9000 10.2000 3.7000 156.0000 78.0000 156.0000 21477.5000 0 $Composite 0 2; Spring_IMK   903601     360     361 $E $fy [expr (905.0000 + 476.0000)] 14.0000 25.9000 10.2000 3.7000 156.0000 78.0000 156.0000 21477.5000 0 $Composite 0 2; 
+Spring_IMK   902503     250     253 $E $fy [expr (905.0000 + 476.0000)] 14.0000 25.9000 10.2000 3.7000 156.0000 78.0000 156.0000 21477.5000 0 $Composite 0 2; Spring_IMK   902603     260     263 $E $fy [expr (905.0000 + 476.0000)] 14.0000 25.9000 10.2000 3.7000 156.0000 78.0000 156.0000 21477.5000 0 $Composite 0 2; 
+Spring_IMK   902501     250     251 $E $fy [expr (905.0000 + 476.0000)] 14.0000 25.9000 10.2000 3.7000 156.0000 78.0000 156.0000 21477.5000 0 $Composite 0 2; Spring_IMK   902601     260     261 $E $fy [expr (905.0000 + 476.0000)] 14.0000 25.9000 10.2000 3.7000 156.0000 78.0000 156.0000 21477.5000 0 $Composite 0 2; 
+Spring_IMK   901503     150     153 $E $fy 476.0000 14.0000 25.9000 10.2000 3.7000 180.0000 90.0000 180.0000 10043.0000 0 $Composite 0 2; Spring_IMK   901603     160     163 $E $fy 476.0000 14.0000 25.9000 10.2000 3.7000 180.0000 90.0000 180.0000 10043.0000 0 $Composite 0 2; 
 
 # GRAVITY BEAMS SPRINGS
 set gap 0.08;
-Spring_Pinching  905504  55   554 40837.500 $gap 1; Spring_Pinching  905602  562  56  40837.500 $gap 1; 
-Spring_Pinching  904504  45   454 40837.500 $gap 1; Spring_Pinching  904602  462  46  40837.500 $gap 1; 
-Spring_Pinching  903504  35   354 40837.500 $gap 1; Spring_Pinching  903602  362  36  40837.500 $gap 1; 
-Spring_Pinching  902504  25   254 40837.500 $gap 1; Spring_Pinching  902602  262  26  40837.500 $gap 1; 
+Spring_Pinching   905504     550     554 49005.0000 $gap 1; Spring_Pinching   905602     560     562 49005.0000 $gap 1; 
+Spring_Pinching   904504     450     454 49005.0000 $gap 1; Spring_Pinching   904602     460     462 49005.0000 $gap 1; 
+Spring_Pinching   903504     350     354 49005.0000 $gap 1; Spring_Pinching   903602     360     362 49005.0000 $gap 1; 
+Spring_Pinching   902504     250     254 49005.0000 $gap 1; Spring_Pinching   902602     260     262 49005.0000 $gap 1; 
 
 ###################################################################################################
 #                                       BOUNDARY CONDITIONS                                       #
 ###################################################################################################
 
-# MRF Supports
-fix 11 1 1 1; fix 12 1 1 1; fix 13 1 1 1; fix 14 1 1 1; 
+# MF SUPPORTS
+fix 110 1 1 1; 
+fix 120 1 1 1; 
+fix 130 1 1 1; 
+fix 140 1 1 1; 
 
-# EGF Supports
-fix 15 1 1 1; fix 16 1 1 1; 
+# EGF SUPPORTS
+fix 150 1 1 0; fix 160 1 1 0; 
 
-# MRF Floor Movement
-equalDOF 405104  405204  1; equalDOF 405104  405304  1; equalDOF 405104  405404  1; 
-equalDOF 404104  404204  1; equalDOF 404104  404304  1; equalDOF 404104  404404  1; 
-equalDOF 403104  403204  1; equalDOF 403104  403304  1; equalDOF 403104  403404  1; 
-equalDOF 402104  402204  1; equalDOF 402104  402304  1; equalDOF 402104  402404  1; 
+# MF FLOOR MOVEMENT
+equalDOF 405104 405204 1; equalDOF 405104 405304 1; equalDOF 405104 405404 1; 
+equalDOF 404104 404204 1; equalDOF 404104 404304 1; equalDOF 404104 404404 1; 
+equalDOF 403104 403204 1; equalDOF 403104 403304 1; equalDOF 403104 403404 1; 
+equalDOF 402104 402204 1; equalDOF 402104 402304 1; equalDOF 402104 402404 1; 
 
-# MRF Column Joints
-equalDOF  405101 	511 1 2; equalDOF  405201 	521 1 2; equalDOF  405301 	531 1 2; equalDOF  405401 	541 1 2; 
-equalDOF  404103 	413 1 2; equalDOF  404203 	423 1 2; equalDOF  404303 	433 1 2; equalDOF  404403 	443 1 2; 
-equalDOF  403103 	313 1 2; equalDOF  403203 	323 1 2; equalDOF  403303 	333 1 2; equalDOF  403403 	343 1 2; 
-equalDOF  402103 	213 1 2; equalDOF  402203 	223 1 2; equalDOF  402303 	233 1 2; equalDOF  402403 	243 1 2; 
-equalDOF  404101 	411 1 2; equalDOF  404201 	421 1 2; equalDOF  404301 	431 1 2; equalDOF  404401 	441 1 2; 
-equalDOF  403101 	311 1 2; equalDOF  403201 	321 1 2; equalDOF  403301 	331 1 2; equalDOF  403401 	341 1 2; 
-equalDOF  402101 	211 1 2; equalDOF  402201 	221 1 2; equalDOF  402301 	231 1 2; equalDOF  402401 	241 1 2; 
-equalDOF  11 	113 1 2; equalDOF  12 	123 1 2; equalDOF  13 	133 1 2; equalDOF  14 	143 1 2; 
+# EGF FLOOR MOVEMENT
+equalDOF 550 560 1;
+equalDOF 450 460 1;
+equalDOF 350 360 1;
+equalDOF 250 260 1;
 
-# MRF Beam Joints
-equalDOF  5140 	514 1 2; equalDOF  5220 	522 1 2; equalDOF  5240 	524 1 2; equalDOF  5320 	532 1 2; equalDOF  5340 	534 1 2; equalDOF  5420 	542 1 2; 
-equalDOF  4140 	414 1 2; equalDOF  4220 	422 1 2; equalDOF  4240 	424 1 2; equalDOF  4320 	432 1 2; equalDOF  4340 	434 1 2; equalDOF  4420 	442 1 2; 
-equalDOF  3140 	314 1 2; equalDOF  3220 	322 1 2; equalDOF  3240 	324 1 2; equalDOF  3320 	332 1 2; equalDOF  3340 	334 1 2; equalDOF  3420 	342 1 2; 
-equalDOF  2140 	214 1 2; equalDOF  2220 	222 1 2; equalDOF  2240 	224 1 2; equalDOF  2320 	232 1 2; equalDOF  2340 	234 1 2; equalDOF  2420 	242 1 2; 
 
-# EGF Beam Joints
-equalDOF  55 	554 1 2; equalDOF  56 	562 1 2; 
-equalDOF  45 	454 1 2; equalDOF  46 	462 1 2; 
-equalDOF  35 	354 1 2; equalDOF  36 	362 1 2; 
-equalDOF  25 	254 1 2; equalDOF  26 	262 1 2; 
-
-# EGF Column Joints
-equalDOF  55 	551 1 2; equalDOF  56 	561 1 2; 
-equalDOF  45 	453 1 2; equalDOF  46 	463 1 2; 
-equalDOF  35 	353 1 2; equalDOF  36 	363 1 2; 
-equalDOF  25 	253 1 2; equalDOF  26 	263 1 2; 
-equalDOF  45 	451 1 2; equalDOF  46 	461 1 2; 
-equalDOF  35 	351 1 2; equalDOF  36 	361 1 2; 
-equalDOF  25 	251 1 2; equalDOF  26 	261 1 2; 
-equalDOF  15 	153 1 2; equalDOF  16 	163 1 2; 
-
-###################################################################################################
-###################################################################################################
-										  puts "Model Built"
-###################################################################################################
-###################################################################################################
+##################################################################################################
+##################################################################################################
+                                       puts "Model Built"
+##################################################################################################
+##################################################################################################
 
 ###################################################################################################
 #                                             RECORDERS                                           #
 ###################################################################################################
 
-# Time
-recorder Node -file $MainFolder/$SubFolder/Time.out  -time -node 11 -dof 1 disp;
+# EIGEN VECTORS
+recorder Node -file $MainFolder/EigenAnalysis/EigenVectorsMode1.out -node 402104 403104 404104 405104  -dof 1 "eigen  1";
+recorder Node -file $MainFolder/EigenAnalysis/EigenVectorsMode2.out -node 402104 403104 404104 405104  -dof 1 "eigen  2";
+recorder Node -file $MainFolder/EigenAnalysis/EigenVectorsMode3.out -node 402104 403104 404104 405104  -dof 1 "eigen  3";
+recorder Node -file $MainFolder/EigenAnalysis/EigenVectorsMode4.out -node 402104 403104 404104 405104  -dof 1 "eigen  4";
 
-# Story Drift
-recorder Drift -file $MainFolder/$SubFolder/SDR_MRF4.out   -iNode 404104 -jNode 405104 -dof 1 -perpDirn 2;
-recorder Drift -file $MainFolder/$SubFolder/SDR_MRF3.out   -iNode 403104 -jNode 404104 -dof 1 -perpDirn 2;
-recorder Drift -file $MainFolder/$SubFolder/SDR_MRF2.out   -iNode 402104 -jNode 403104 -dof 1 -perpDirn 2;
-recorder Drift -file $MainFolder/$SubFolder/SDR_MRF1.out   -iNode 11   	 -jNode 402104 -dof 1 -perpDirn 2;
+# TIME
+recorder Node -file $MainFolder/$SubFolder/Time.out  -time -node 110 -dof 1 disp;
 
-if {$EQ==1} {
-# Floor Accelerations
-recorder Node -file $MainFolder/$SubFolder/RFA_MRF5.out   -node 405103 -dof 1 accel;
-recorder Node -file $MainFolder/$SubFolder/RFA_MRF4.out   -node 404103 -dof 1 accel;
-recorder Node -file $MainFolder/$SubFolder/RFA_MRF3.out   -node 403103 -dof 1 accel;
-recorder Node -file $MainFolder/$SubFolder/RFA_MRF2.out   -node 402103 -dof 1 accel;
-recorder Node -file $MainFolder/$SubFolder/RFA_MRF1.out   -node 11     -dof 1 accel;
-}
+# SUPPORT REACTIONS
+recorder Node -file $MainFolder/$SubFolder/Support1.out -node     110 -dof 1 2 6 reaction; recorder Node -file $MainFolder/$SubFolder/Support2.out -node     120 -dof 1 2 6 reaction; recorder Node -file $MainFolder/$SubFolder/Support3.out -node     130 -dof 1 2 6 reaction; recorder Node -file $MainFolder/$SubFolder/Support4.out -node     140 -dof 1 2 6 reaction; recorder Node -file $MainFolder/$SubFolder/Support5.out -node     150 -dof 1 2 6 reaction; recorder Node -file $MainFolder/$SubFolder/Support6.out -node     160 -dof 1 2 6 reaction; 
+
+# STORY DRIFT RATIO
+recorder Drift -file $MainFolder/$SubFolder/SDR4_MF.out -iNode  404104 -jNode  405104 -dof 1 -perpDirn 2; 
+recorder Drift -file $MainFolder/$SubFolder/SDR3_MF.out -iNode  403104 -jNode  404104 -dof 1 -perpDirn 2; 
+recorder Drift -file $MainFolder/$SubFolder/SDR2_MF.out -iNode  402104 -jNode  403104 -dof 1 -perpDirn 2; 
+recorder Drift -file $MainFolder/$SubFolder/SDR1_MF.out -iNode     110 -jNode  402104 -dof 1 -perpDirn 2; 
+
+# COLUMN ELASTIC ELEMENT FORCES
+recorder Element -file $MainFolder/$SubFolder/Column41.out -ele  604100 force; recorder Element -file $MainFolder/$SubFolder/Column42.out -ele  604200 force; recorder Element -file $MainFolder/$SubFolder/Column43.out -ele  604300 force; recorder Element -file $MainFolder/$SubFolder/Column44.out -ele  604400 force; recorder Element -file $MainFolder/$SubFolder/Column45.out -ele  604500 force; recorder Element -file $MainFolder/$SubFolder/Column46.out -ele  604600 force; 
+recorder Element -file $MainFolder/$SubFolder/Column31.out -ele  603101 force; recorder Element -file $MainFolder/$SubFolder/Column32.out -ele  603201 force; recorder Element -file $MainFolder/$SubFolder/Column33.out -ele  603301 force; recorder Element -file $MainFolder/$SubFolder/Column34.out -ele  603401 force; recorder Element -file $MainFolder/$SubFolder/Column35.out -ele  603501 force; recorder Element -file $MainFolder/$SubFolder/Column36.out -ele  603601 force; 
+recorder Element -file $MainFolder/$SubFolder/Column21.out -ele  602100 force; recorder Element -file $MainFolder/$SubFolder/Column22.out -ele  602200 force; recorder Element -file $MainFolder/$SubFolder/Column23.out -ele  602300 force; recorder Element -file $MainFolder/$SubFolder/Column24.out -ele  602400 force; recorder Element -file $MainFolder/$SubFolder/Column25.out -ele  602500 force; recorder Element -file $MainFolder/$SubFolder/Column26.out -ele  602600 force; 
+recorder Element -file $MainFolder/$SubFolder/Column11.out -ele  601100 force; recorder Element -file $MainFolder/$SubFolder/Column12.out -ele  601200 force; recorder Element -file $MainFolder/$SubFolder/Column13.out -ele  601300 force; recorder Element -file $MainFolder/$SubFolder/Column14.out -ele  601400 force; recorder Element -file $MainFolder/$SubFolder/Column15.out -ele  601500 force; recorder Element -file $MainFolder/$SubFolder/Column16.out -ele  601600 force; 
 
 ###################################################################################################
-#                                            NODAL MASS                                           #
+#                                              NODAL MASS                                         #
 ###################################################################################################
 
-set g 386.09;
-mass 405103 0.2888  1.e-9 1.e-9; mass 405203 0.2888  1.e-9 1.e-9; mass 405303 0.2888  1.e-9 1.e-9; mass 405403 0.2888  1.e-9 1.e-9; mass 55 0.2888  1.e-9 1.e-9; mass 56 0.2888  1.e-9 1.e-9; 
-mass 404103 0.3056  1.e-9 1.e-9; mass 404203 0.3056  1.e-9 1.e-9; mass 404303 0.3056  1.e-9 1.e-9; mass 404403 0.3056  1.e-9 1.e-9; mass 45 0.3056  1.e-9 1.e-9; mass 46 0.3056  1.e-9 1.e-9; 
-mass 403103 0.3056  1.e-9 1.e-9; mass 403203 0.3056  1.e-9 1.e-9; mass 403303 0.3056  1.e-9 1.e-9; mass 403403 0.3056  1.e-9 1.e-9; mass 35 0.3056  1.e-9 1.e-9; mass 36 0.3056  1.e-9 1.e-9; 
-mass 402103 0.3108  1.e-9 1.e-9; mass 402203 0.3108  1.e-9 1.e-9; mass 402303 0.3108  1.e-9 1.e-9; mass 402403 0.3108  1.e-9 1.e-9; mass 25 0.3108  1.e-9 1.e-9; mass 26 0.3108  1.e-9 1.e-9; 
+set g 386.10;
+mass 405104 0.1476  1.e-9 1.e-9; mass 405204 0.1709  1.e-9 1.e-9; mass 405304 0.1709  1.e-9 1.e-9; mass 405404 0.1709  1.e-9 1.e-9; mass 550 0.5361  1.e-9 1.e-9; mass 560 0.5361  1.e-9 1.e-9; 
+mass 404104 0.2486  1.e-9 1.e-9; mass 404204 0.2720  1.e-9 1.e-9; mass 404304 0.2720  1.e-9 1.e-9; mass 404404 0.2720  1.e-9 1.e-9; mass 450 0.3846  1.e-9 1.e-9; mass 460 0.3846  1.e-9 1.e-9; 
+mass 403104 0.2486  1.e-9 1.e-9; mass 403204 0.2720  1.e-9 1.e-9; mass 403304 0.2720  1.e-9 1.e-9; mass 403404 0.2720  1.e-9 1.e-9; mass 350 0.3846  1.e-9 1.e-9; mass 360 0.3846  1.e-9 1.e-9; 
+mass 402104 0.2797  1.e-9 1.e-9; mass 402204 0.3030  1.e-9 1.e-9; mass 402304 0.3030  1.e-9 1.e-9; mass 402404 0.3030  1.e-9 1.e-9; mass 250 0.3380  1.e-9 1.e-9; mass 260 0.3380  1.e-9 1.e-9; 
+
+constraints Plain;
 
 ###################################################################################################
 #                                        EIGEN VALUE ANALYSIS                                     #
@@ -391,96 +426,30 @@ set w1 [expr pow($lambda1,0.5)];
 set w2 [expr pow($lambda2,0.5)];
 set w3 [expr pow($lambda3,0.5)];
 set w4 [expr pow($lambda4,0.5)];
-set T1 [expr 2.0*$pi/$w1];
-set T2 [expr 2.0*$pi/$w2];
-set T3 [expr 2.0*$pi/$w3];
-set T4 [expr 2.0*$pi/$w4];
+set T1 [expr round(2.0*$pi/$w1 *1000.)/1000.];
+set T2 [expr round(2.0*$pi/$w2 *1000.)/1000.];
+set T3 [expr round(2.0*$pi/$w3 *1000.)/1000.];
+set T4 [expr round(2.0*$pi/$w4 *1000.)/1000.];
 puts "T1 = $T1 s";
 puts "T2 = $T2 s";
 puts "T3 = $T3 s";
+set fileX [open "EigenPeriod.out" w];
+puts $fileX $T1;puts $fileX $T2;puts $fileX $T3;puts $fileX $T4;close $fileX;
 
-###################################################################################################
-###################################################################################################
-									  puts "Eigen Analysis Done"
-###################################################################################################
-###################################################################################################
-
-###################################################################################################
-#                                      STATIC GRAVITY ANALYSIS                                    #
-###################################################################################################
-
-pattern Plain 100 Linear {
-
-# MRF COLUMNS LOADS
-load 405103 0. -34.969 0.; load 405203 0. -23.312 0.; load 405303 0. -23.312 0.; load 405403 0. -34.969 0.; 
-load 404103 0. -42.337 0.; load 404203 0. -28.225 0.; load 404303 0. -28.225 0.; load 404403 0. -42.337 0.; 
-load 403103 0. -42.337 0.; load 403203 0. -28.225 0.; load 403303 0. -28.225 0.; load 403403 0. -42.337 0.; 
-load 402103 0. -43.125 0.; load 402203 0. -28.750 0.; load 402303 0. -28.750 0.; load 402403 0. -43.125 0.; 
-
-# EGC/LC COLUMN LOADS
-load 55 0. -310.443794 0.; load 56 0. -310.443794 0.; 
-load 45 0. -344.887107 0.; load 46 0. -344.887107 0.; 
-load 35 0. -344.887107 0.; load 36 0. -344.887107 0.; 
-load 25 0. -346.724595 0.; load 26 0. -346.724595 0.; 
-
-}
-
-# Conversion Parameters
 constraints Plain;
-numberer RCM;
-system BandGeneral;
-test NormDispIncr 1.0e-5 60 ;
 algorithm Newton;
-integrator LoadControl 0.1;
+integrator LoadControl 1;
 analysis Static;
-analyze 10;
-
-loadConst -time 0.0;
+analyze 1;
 
 ###################################################################################################
 ###################################################################################################
-									 puts "Gravity Done"
+									puts "Eigen Analysis Done"
 ###################################################################################################
 ###################################################################################################
 
-puts "Seismic Weight = 3236.4 kip";
-puts "Seismic Mass = 7.3 kip.sec2/in";
-
-if {$Animation == 1} {
-	DisplayModel3D DeformedShape 5 50 50  2000 1500
-}
-
-###################################################################################################
-#                                        Pushover Analysis                       		          #
-###################################################################################################
-
-if {$PO==1} {
-
-	# Create Load Pattern
-	pattern Plain 222 Linear {
-	load 405103 0.21526 0.0 0.0
-	load 404103 0.15905 0.0 0.0
-	load 403103 0.10490 0.0 0.0
-	load 402103 0.05076 0.0 0.0
-	}
-
-	# Displacement Control Parameters
-	set CtrlNode 405104;
-	set CtrlDOF 1;
-	set Dmax [expr 0.100*$Floor5];
-	set Dincr [expr 0.005];
-	set Nsteps [expr int($Dmax/$Dincr)];
-	
-	constraints Plain;
-	numberer RCM; 
-	system UmfPack;
-	test NormDispIncr 1.0e-5 400;
-	algorithm 	KrylovNewton;
-	integrator 	DisplacementControl $CtrlNode $CtrlDOF $Dincr;
-	analysis 	Static;
-	analyze 	$Nsteps;
-
-	puts "Pushover complete"
+if {$ShowAnimation == 1} {
+	DisplayModel3D DeformedShape 5 50 50  2000 1500;
 }
 
 ###################################################################################################
@@ -489,33 +458,41 @@ if {$PO==1} {
 
 if {$EQ==1} {
 
-	set GMfile "NR94cnp.txt";							# ground motion filename
-	set dt 0.01;										# timestep of input GM file
-	set EqScale 1.0;									# ground motion scaling factor
-	set TotalNumberOfSteps 2495;						# number of steps in ground motion
-	set GMtime [expr $dt*$TotalNumberOfSteps + 10.0];	# total time of ground motion + 10 sec of free vibration
-	set NumSteps [expr round(($GMtime + 0.0)/$dt)];		# number of steps in analysis
-	set TotalNumberOfSteps $NumSteps;
-	set dtAnalysis $dt;
-	set totTime [expr $dt*$TotalNumberOfSteps];	
-		
-	# Rayleigh Damping
-	set zeta 0.02;
-	set a0 [expr $zeta*2.0*$w1*$w3/($w1 + $w3)];
-	set a1 [expr $zeta*2.0/($w1 + $w3)];
-	set a1_mod [expr $a1*(1.0+$n)/$n];
-	region 1 -eleRange  502100  604400 -rayleigh 0.0 0.0 $a1_mod 0.0;
-	region 2 -node  402103 402203 402303 402403 102500 102600 403103 403203 403303 403403 103500 103600 404103 404203 404303 404403 104500 104600 405103 405203 405303 405403 105500 105600  -rayleigh $a0 0.0 0.0 0.0;
+set GMfile "NR94cnp.txt";				# ground motion filename
+set GMdt 0.01;							# timestep of input GM file
+set EqSF 1.0;							# ground motion scaling factor
+set GMpoints 2495;						# number of steps in ground motion
 
-	# GROUND MOTION ACCELERATION FILE INPUT
-	set AccelSeries "Series -dt $dt -filePath $GMfile -factor  [expr $EqScale* $g]"
-	pattern UniformExcitation  200 1 -accel $AccelSeries
+# Rayleigh Damping
+global Sigma_zeta; global xRandom;
+set zeta 0.020;
+set SigmaX $Sigma_zeta; Generate_lognrmrand $zeta 		$SigmaX; 		set zeta 	$xRandom;
+set a0 [expr $zeta*2.0*$w1*$w3/($w1 + $w3)];
+set a1 [expr $zeta*2.0/($w1 + $w3)];
+set a1_mod [expr $a1*(1.0+$n)/$n];
+region 1 -ele  604100 604200 604300 604400 603102 603202 603302 603402 603101 603201 603301 603401 602100 602200 602300 602400 601100 601200 601300 601400 505100 505200 505300 504100 504200 504300 503100 503200 503300 502100 502200 502300  -rayleigh 0.0 0.0 $a1_mod 0.0;
+region 2 -node  402104 402204 402304 402404 250 260 403104 403204 403304 403404 350 360 404104 404204 404304 404404 450 460 405104 405204 405304 405404 550 560  -rayleigh $a0 0.0 0.0 0.0;
+region 3 -eleRange  900000  999999 -rayleigh 0.0 0.0 [expr $a1_mod/10] 0.0;
 
-	set SMFFloorNodes [list  402104 403104 404104 405104 ];
-	DynamicAnalysisCollapseSolver   $dt	$dtAnalysis	$totTime 4	0.15   $SMFFloorNodes	180.00 156.00;
+# GROUND MOTION ACCELERATION FILE INPUT
+set AccelSeries "Series -dt $GMdt -filePath $GMfile -factor  [expr $EqSF * $g]"
+pattern UniformExcitation  200 1 -accel $AccelSeries
 
-	puts "Ground Motion Done. End Time: [getTime]"
+set MF_FloorNodes [list  402104 403104 404104 405104 ];
+set EGF_FloorNodes [list  250 350 450 550 ];
+set GMduration [expr $GMdt*$GMpoints];
+set FVduration 10.000000;
+set NumSteps [expr round(($GMduration + $FVduration)/$GMdt)];	# number of steps in analysis
+set totTime [expr $GMdt*$NumSteps];                            # Total time of analysis
+set dtAnalysis [expr 0.500000*$GMdt];                             	# dt of Analysis
 
+DynamicAnalysisCollapseSolverX  $GMdt	$dtAnalysis	$totTime $NStory	 0.15   $MF_FloorNodes	$EGF_FloorNodes	180.00 156.00 1 $StartTime $MaxRunTime;
+
+###################################################################################################
+###################################################################################################
+							puts "Ground Motion Done. End Time: [getTime]"
+###################################################################################################
+###################################################################################################
 }
 
 wipe all;

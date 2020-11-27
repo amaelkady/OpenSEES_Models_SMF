@@ -1,33 +1,34 @@
-#######################################################################################################
+##################################################################################################################
 # Spring_IMK.tcl
 #                                                                                       
-# SubRoutine to model a rotational spring representing the behaviour of steel beams/columns                                                                
+# SubRoutine to construct a rotational spring representing the moment-rotation behaviour of steel beam-columns  
+# and beams that are part of fully-restrained beam-to-column connections.                                                                 
 #  
-# Reference: 
-#	
+# The subroutine also considers modeling uncertainty based on the logarithmic standard deviations specified by the user.
+#
+# References: 
+#--------------	
+# Lignos, D. G. and H. Krawinkler (2011). "Deterioration Modeling of Steel Components in Support of Collapse 
+# 	Prediction of Steel Moment Frames under Earthquake Loading." Journal of Structural Engineering 137(11).	
+#
 # Elkady, A. and D. G. Lignos (2014). "Modeling of the Composite Action in Fully Restrained Beam-to-Column
 # 	Connections: ‎Implications in the Seismic Design and Collapse Capacity of Steel Special Moment Frames." 
-# 	Earthquake Eng. & Structural Dynamics 43(13): 1935-1954.
+# 	Earthquake Eng. & Structural Dynamics 43(13).
 #
 # Lignos, D. G., et al. (2019). "Proposed Updates to the ASCE 41 Nonlinear Modeling Parameters for Wide-Flange
 #	 Steel Columns in Support of Performance-based Seismic Engineering." Journal of Structural Engineering 145(9).
-#	
-# Lignos, D. G. and H. Krawinkler (2011). "Deterioration Modeling of Steel Components in Support of Collapse 
-# 	Prediction of Steel Moment Frames under Earthquake Loading." Journal of Structural Engineering 137(11): 1291-1302.
 #
-#######################################################################################################
+##################################################################################################################
 #
-# Inout Arguments
+# Input Arguments:
+#------------------
 #  SpringID  			Spring ID
-#  iNode	    		First node
-#  jNode	    		Second node
+#  NodeI				Node i ID
+#  NodeJ				Node j ID
 #  E         			Young's modulus
 #  Fy        			Yield stress
 #  Ix        			Moment of inertia of section
 #  d         			Section depth
-#  tw        			Web thickness
-#  bf        			Flange width
-#  tf        			Flange thickness
 #  htw        			Web slenderness ratio
 #  bftf        			Flange slenderness ratio
 #  L         			Member Length
@@ -35,7 +36,7 @@
 #  Lb        			Unbraced length
 #  My        			Effective Yield Moment
 #  PgPye        		Axial load ratio due to gravity
-#  CompositeFLAG		FLAG for Composite Action Consideration: 0 --> Ignore   Composite Effect   
+#  CompositeFlag		FLAG for Composite Action Consideration: 0 --> Ignore   Composite Effect   
 # 															 	 1 --> Consider Composite Effect
 #  ConnectionType		Type of Connection: 0 --> Reduced     Beam Section  
 # 											1 --> Non-Reduced Beam Section    
@@ -43,14 +44,12 @@
 #  Units				Unsed Units: 1 --> millimeters and MPa     
 #								 	 2 --> inches and ksi
 #
-# Written by: Ahmed Elkady                                                                             
-# Created:       04/07/2012                                                                            
-# Last Modified: 05/02/2020
-#      Modified on 05 Feb 2020: *corrected typo in the lambda equation for columns subjected to Pg/Pye larger than 0.35: modification in Line 226: 26800 --> 268000 
-#     							*modified  lambda_C and lamda_K values for columns subjected as 0.9*lambda_S: modification in Line 275
-#######################################################################################################
+# Written by: Dr. Ahmed Elkady, University of Southampton, UK
+#
+##################################################################################################################
 
-proc Spring_IMK {SpringID Node_i Node_j E Fy Ix d tw bf tf htw bftf ry L Ls Lb My PgPye CompositeFLAG ConnectionType Units} {
+
+proc Spring_IMK {SpringID NodeI NodeJ E Fy Ix d htw bftf ry L Ls Lb My PgPye CompositeFlag ConnectionType Units} {
 
 set n 10.0;
 if {$Units == 1} {
@@ -81,7 +80,7 @@ if {$ConnectionType == 0} {
 	set Lmda      [expr 585  * pow(($htw),-1.140) * pow(($bftf),-0.632) *  pow(($Lb/$ry),-0.205) 													* pow(($c2 * $Fy* $c4/355),-0.391)];
 
 	# FOR BARE STEEL BEAM
-	if {$CompositeFLAG == 0} {
+	if {$CompositeFlag == 0} {
 		set MyPMy 1.0;
 		set MyNMy 1.0;
 		set McMyP 1.1;
@@ -103,10 +102,13 @@ if {$ConnectionType == 0} {
 		
 		set Res_P 0.4;
 		set Res_N 0.4;
+		
+		set c 1.0;
+
 	}
 
-	# FOR CompositeFLAG BEAM
-	if {$CompositeFLAG != 0} {
+	# FOR COMPOSITE BEAM
+	if {$CompositeFlag != 0} {
 		set MyPMy 1.35;
 		set MyNMy 1.25;
 		set McMyP 1.30;
@@ -130,6 +132,9 @@ if {$ConnectionType == 0} {
 
 		set Res_P 0.3;
 		set Res_N 0.2;
+		
+		set c 1.0;
+
 	}
 	
 }
@@ -154,7 +159,7 @@ if {$ConnectionType == 1} {
 	}
 	
 	# FOR BARE STEEL BEAM
-	if {$CompositeFLAG == 0} {		
+	if {$CompositeFlag == 0} {		
 		set MyPMy    1.0;
 		set MyNMy    1.0;
 		set McMyP    1.1;
@@ -176,10 +181,13 @@ if {$ConnectionType == 1} {
 		
 		set Res_P 0.4;
 		set Res_N 0.4;
+		
+		set c 1.0;
+
 	}
 
-	# FOR CompositeFLAG BEAM
-	if {$CompositeFLAG != 0} {
+	# FOR COMPOSITE BEAM
+	if {$CompositeFlag != 0} {
 		set MyPMy 1.35;
 		set MyNMy 1.25;
 		set McMyP 1.30;
@@ -204,6 +212,8 @@ if {$ConnectionType == 1} {
 		set Res_P 0.3;
 		set Res_N 0.2;
 		
+		set c 1.0;
+
 	}
 }
 
@@ -258,6 +268,8 @@ if {$ConnectionType == 2} {
 	set Res_P [expr 0.5-0.4*$PgPye];
 	set Res_N [expr 0.5-0.4*$PgPye];
 	
+	set c 1.0;
+	
 }
 
 #######################################################################################################
@@ -266,23 +278,90 @@ if {$ConnectionType == 2} {
 #######################################################################################################
 
 set My_P     [expr  $MyPMy * $My]; 
-set My_N     [expr -$MyNMy * $My];		
-set as_mem_p [expr  ($McMyP-1.)*$My_P/($theta_p_P * 6.*$E * $Ix/$L)];
-set as_mem_n [expr -($McMyN-1.)*$My_N/($theta_p_N * 6.*$E * $Ix/$L)];
-set SH_mod_P [expr ($as_mem_p)/(1.0+$n*(1.0-$as_mem_p))];
-set SH_mod_N [expr ($as_mem_n)/(1.0+$n*(1.0-$as_mem_n))];
+set My_N     [expr  $MyNMy * $My];
 
+
+# # Bilin material model
+#set My_P     [expr  $MyPMy * $My]; 
+#set My_N     [expr -$MyNMy * $My];		
+#set as_mem_p [expr  ($McMyP-1.)*$My_P/($theta_p_P * 6.*$E * $Ix/$L)];
+#set as_mem_n [expr -($McMyN-1.)*$My_N/($theta_p_N * 6.*$E * $Ix/$L)];
+#set SH_mod_P [expr ($as_mem_p)/(1.0+$n*(1.0-$as_mem_p))];
+#set SH_mod_N [expr ($as_mem_n)/(1.0+$n*(1.0-$as_mem_n))];
+#uniaxialMaterial Bilin    $SpringID $K $SH_mod_P $SH_mod_N $My_P $My_N $L_S $L_C $L_A $L_K $c_S $c_C $c_A $c_K $theta_p_P $theta_p_N $theta_pc_P $theta_pc_N $Res_P $Res_N $theta_u $theta_u $D_P $D_N
+
+
+##################################################################################################################
+#Random generation of backbone parameters based on assigned uncertainty 
+##################################################################################################################
+global Sigma_IMKcol Sigma_IMKbeam; global xRandom;
+if {$ConnectionType == 2} {
+	set SigmaX [lindex $Sigma_IMKcol  0]; Generate_lognrmrand $K $SigmaX; 			set K 			$xRandom;
+	set SigmaX [lindex $Sigma_IMKcol  1]; Generate_lognrmrand $My_P $SigmaX; 		set My_P 		$xRandom;
+																					set My_N 		$xRandom;
+	set SigmaX [lindex $Sigma_IMKcol  2]; Generate_lognrmrand $McMyP $SigmaX; 		set McMyP 		[expr max(1.01,$xRandom)];
+																					set McMyN 		[expr max(1.01,$xRandom)];
+	set SigmaX [lindex $Sigma_IMKcol  3]; Generate_lognrmrand $Res_P $SigmaX; 		set Res_P 		$xRandom;
+																					set Res_N 		$xRandom;
+	set SigmaX [lindex $Sigma_IMKcol  4]; Generate_lognrmrand $theta_p_P $SigmaX; 	set theta_p_P 	$xRandom;
+																					set theta_p_N 	$xRandom;
+	set SigmaX [lindex $Sigma_IMKcol  5]; Generate_lognrmrand $theta_pc_P $SigmaX; 	set theta_pc_P 	$xRandom;
+																					set theta_pc_N 	$xRandom;
+	set SigmaX [lindex $Sigma_IMKcol  6]; Generate_lognrmrand $theta_u $SigmaX; 	set theta_u 	$xRandom;
+	set SigmaX [lindex $Sigma_IMKcol  7]; Generate_lognrmrand $Lmda $SigmaX; 		set Lmda 		$xRandom;
+	#set SigmaX [lindex $Sigma_IMKcol  8]; Generate_lognrmrand $c $SigmaX; 			set c 			$xRandom;
+}
+if {$ConnectionType != 2 && $CompositeFlag == 0} {
+	set SigmaX [lindex $Sigma_IMKbeam 0]; Generate_lognrmrand $K $SigmaX; 			set K 			$xRandom;
+	set SigmaX [lindex $Sigma_IMKbeam 1]; Generate_lognrmrand $My_P $SigmaX; 		set My_P 		$xRandom;
+																					set My_N 		$xRandom;
+	set SigmaX [lindex $Sigma_IMKbeam 2]; Generate_lognrmrand $McMyP $SigmaX; 		set McMyP 		[expr max(1.01,$xRandom)];
+																					set McMyN 		[expr max(1.01,$xRandom)];
+	set SigmaX [lindex $Sigma_IMKbeam 3]; Generate_lognrmrand $Res_P $SigmaX; 		set Res_P 		$xRandom;
+																					set Res_N 		$xRandom;
+	set SigmaX [lindex $Sigma_IMKbeam 4]; Generate_lognrmrand $theta_p_P $SigmaX; 	set theta_p_P 	$xRandom;
+																					set theta_p_N 	$xRandom;
+	set SigmaX [lindex $Sigma_IMKbeam 5]; Generate_lognrmrand $theta_pc_P $SigmaX; 	set theta_pc_P 	$xRandom;
+																					set theta_pc_N 	$xRandom;
+	set SigmaX [lindex $Sigma_IMKbeam 6]; Generate_lognrmrand $theta_u $SigmaX; 	set theta_u 	$xRandom;
+	set SigmaX [lindex $Sigma_IMKbeam 7]; Generate_lognrmrand $Lmda $SigmaX; 		set Lmda 		$xRandom;
+	#set SigmaX [lindex $Sigma_IMKbeam 8]; Generate_lognrmrand $c $SigmaX; 			set c 			$xRandom;
+
+} 
+if {$ConnectionType != 2 && $CompositeFlag == 1} {
+	set SigmaX [lindex $Sigma_IMKbeam 0]; Generate_lognrmrand $K 		  $SigmaX; 	set K 			$xRandom;
+	set SigmaX [lindex $Sigma_IMKbeam 1]; Generate_lognrmrand $My_P 	  $SigmaX; 	set My_P 		$xRandom;
+	set SigmaX [lindex $Sigma_IMKbeam 1]; Generate_lognrmrand $My_N 	  $SigmaX; 	set My_N 		$xRandom;
+	set SigmaX [lindex $Sigma_IMKbeam 2]; Generate_lognrmrand $McMyP 	  $SigmaX; 	set McMyP 		[expr max(1.01,$xRandom)];
+	set SigmaX [lindex $Sigma_IMKbeam 2]; Generate_lognrmrand $McMyN 	  $SigmaX; 	set McMyN 		[expr max(1.01,$xRandom)];
+	set SigmaX [lindex $Sigma_IMKbeam 3]; Generate_lognrmrand $Res_P 	  $SigmaX; 	set Res_P 		$xRandom;
+	set SigmaX [lindex $Sigma_IMKbeam 3]; Generate_lognrmrand $Res_N 	  $SigmaX; 	set Res_N 		$xRandom;
+	set SigmaX [lindex $Sigma_IMKbeam 4]; Generate_lognrmrand $theta_p_P  $SigmaX; 	set theta_p_P 	$xRandom;
+	set SigmaX [lindex $Sigma_IMKbeam 4]; Generate_lognrmrand $theta_p_N  $SigmaX; 	set theta_p_N 	$xRandom;
+	set SigmaX [lindex $Sigma_IMKbeam 5]; Generate_lognrmrand $theta_pc_P $SigmaX; 	set theta_pc_P 	$xRandom;
+	set SigmaX [lindex $Sigma_IMKbeam 5]; Generate_lognrmrand $theta_pc_N $SigmaX; 	set theta_pc_N 	$xRandom;
+	set SigmaX [lindex $Sigma_IMKbeam 6]; Generate_lognrmrand $theta_u 	  $SigmaX; 	set theta_u 	$xRandom;
+	set SigmaX [lindex $Sigma_IMKbeam 7]; Generate_lognrmrand $Lmda 	  $SigmaX; 	set Lmda 		$xRandom;
+	#set SigmaX [lindex $Sigma_IMKbeam 8]; Generate_lognrmrand $c 		  $SigmaX; 	set c 			$xRandom;
+}
+##################################################################################################################
+##################################################################################################################
+##################################################################################################################
+
+
+
+# Cyclic deterioration parameters
 if {$ConnectionType == 2} {
 	set L_S $Lmda; set L_C [expr 0.9*$Lmda]; set L_A $Lmda; set L_K [expr 0.9*$Lmda];
 } else {
-	set L_S $Lmda; set L_C $Lmda; set L_A $Lmda; set L_K $Lmda;
+	set L_S $Lmda; set L_C 			 $Lmda;  set L_A $Lmda; set L_K 		  $Lmda;
 }
-set c_S 1.0; set c_C 1.0; set c_A 1.0; set c_K 1.0;
+	set c_S $c;    set c_C $c; 				 set c_A $c; 	set c_K $c;
 
-uniaxialMaterial Bilin $SpringID $K $SH_mod_P $SH_mod_N $My_P $My_N $L_S $L_C $L_A $L_K $c_S $c_C $c_A $c_K $theta_p_P $theta_p_N $theta_pc_P $theta_pc_N $Res_P $Res_N $theta_u $theta_u $D_P $D_N
-element zeroLength $SpringID $Node_i $Node_j  -mat $SpringID -dir 6 -doRayleigh 1;
+# IMKBilin material model (This is the updated version of the Bilin model)
+uniaxialMaterial IMKBilin $SpringID $K $theta_p_P $theta_pc_P $theta_u $My_P $McMyP $Res_P $theta_p_N $theta_pc_N $theta_u $My_N $McMyN $Res_N $L_S $L_C $L_K $c_S $c_C $c_K $D_P $D_N;
 
-#equalDOF $Node_i $Node_j 1 2;
-#element zeroLength $SpringID $Node_i $Node_j  -mat 99 99 $SpringID -dir 1 2 6;
+element zeroLength $SpringID $NodeI $NodeJ  -mat 99 99 $SpringID -dir 1 2 6 -doRayleigh 1;
+
 
 }
