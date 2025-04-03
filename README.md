@@ -1,8 +1,7 @@
-# OpenSEES_Models_SMF
-
 This folder contains ready-to-run 2-dimensional OpenSEES models of five archetype steel buildings designed with perimeter special moment frames (SMFs), with heights of 2, 4, 8, 12 and 20-story.
 
-NOTE: Now you can generate further frame configurations with updated modeling specifications using the FM-2D software (https://github.com/amaelkady/FM-2D).
+# Important Note
+These models were developed back in 2019. There has been several updates since then including new modeling approaches and guidelines. To generate frame models with updated modeling specifications, you are strongly recommended to use the FM-2D software (https://github.com/amaelkady/FM-2D).
 
 References:
 ------------
